@@ -1,0 +1,18 @@
+# artifacts produced by running examples
+graph.md
+graph.html
+film.html
+film_nan.html
+onnx_film.html
+spiral.onnx
+
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.venv/
+venv/
+.idea/
+.vscode/

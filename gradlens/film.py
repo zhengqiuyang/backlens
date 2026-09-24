@@ -1,0 +1,418 @@
+"""Backprop Film: record a backward pass, replay it as an animation.
+
+``film_backward(loss)`` runs a real backward pass and captures every op as a
+frame; ``film.save_html("film.html")`` writes a single self-contained
+interactive player -- hand-rolled SVG, no CDN, no dependencies. Open it in any
+browser and watch gradients flow through the computation graph one op at a
+time: play/pause, step, scrub, and see the first NaN/Inf node light up red.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import webbrowser
+from typing import Dict, List, Optional
+
+from .engine import Tensor
+from .debug import BackwardStep
+
+
+def _finite(x: float) -> Optional[float]:
+    x = float(x)
+    return x if math.isfinite(x) else None
+
+
+def _kind(t: Tensor) -> str:
+    if t._prev:
+        return "op"
+    return "param" if t.requires_grad else "data"
+
+
+class BackwardFilm:
+    """The recorded backward pass: graph + one frame per executed op."""
+
+    def __init__(self, name: str, nodes: List[dict], edges: List[List[int]],
+                 steps: List[dict]):
+        self.name = name
+        self.nodes = nodes
+        self.edges = edges
+        self.steps = steps
+
+    # -- data -----------------------------------------------------------------
+
+    def to_json(self) -> str:
+        return json.dumps(
+            {"name": self.name, "nodes": self.nodes, "edges": self.edges,
+             "steps": self.steps},
+            indent=1,
+        )
+
+    def save_json(self, path: str) -> None:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(self.to_json())
+
+    def save_html(self, path: str) -> None:
+        data = self.to_json().replace("</", "<\\/")  # keep JSON inside <script>
+        html = _HTML_TEMPLATE.replace("__FILM_JSON__", data)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(html)
+
+    def open_in_browser(self, path: str = "gradlens_film.html") -> None:
+        self.save_html(path)
+        webbrowser.open("file://" + path)
+
+    # -- summaries --------------------------------------------------------------
+
+    @property
+    def first_anomaly_step(self) -> Optional[int]:
+        for s in self.steps:
+            if s["nan"] or s["inf"]:
+                return s["index"]
+        return None
+
+    def summary(self) -> str:
+        first = self.first_anomaly_step
+        tail = (f", first anomaly at step {first}"
+                if first is not None else "")
+        return (f"BackwardFilm '{self.name}': {len(self.nodes)} nodes, "
+                f"{len(self.steps)} backward steps{tail}")
+
+
+def film_backward(loss: Tensor, name: str = "backward pass") -> BackwardFilm:
+    """Run ``loss.backward()`` and record it as a :class:`BackwardFilm`.
+
+    The film contains the full computation graph (nodes + edges) and one step
+    record per op whose backward closure executed, in loss-first order -- the
+    same ordering as :func:`gradlens.debug.debug_backward`.
+    """
+    raw = loss.backward(return_trace=True)
+    topo = loss._topo()                      # forward topological order
+    index: Dict[int, int] = {id(t): i for i, t in enumerate(topo)}
+
+    nodes = [
+        {"id": i, "op": t._op or "leaf", "label": t.label or "",
+         "shape": list(t.shape), "kind": _kind(t)}
+        for i, t in enumerate(topo)
+    ]
+    edges = [[index[id(p)], index[id(t)]] for t in topo for p in t._prev]
+
+    steps = []
+    for k, node in enumerate(raw):
+        st = BackwardStep(k, node)
+        steps.append({
+            "index": k, "node": index[id(node)], "op": st.op,
+            "label": st.label, "shape": list(st.shape),
+            "gn": _finite(st.grad_norm), "gx": _finite(st.grad_absmax),
+            "nan": any("NaN" in n for n in st.notes),
+            "inf": any("Inf" in n for n in st.notes),
+            "notes": st.notes,
+        })
+    return BackwardFilm(name, nodes, edges, steps)
+
+
+# ---------------------------------------------------------------------------
+# the player: one self-contained HTML file, vanilla JS + hand-rolled SVG
+# ---------------------------------------------------------------------------
+
+_HTML_TEMPLATE = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GradLens Backprop Film</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #30363d;
+    --fg: #c9d1d9; --dim: #8b949e; --blue: #58a6ff; --green: #3fb950;
+    --orange: #d29922; --red: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 14px/1.45 ui-monospace, Consolas, "Cascadia Code", monospace; }
+  header { padding: 14px 18px 8px; }
+  header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+  header h1 .lens { color: var(--blue); }
+  #meta { color: var(--dim); margin-top: 2px; }
+  #anomaly-banner { display: none; margin: 8px 18px 0; padding: 8px 12px;
+    background: #3d1418; border: 1px solid var(--red); border-radius: 6px;
+    color: var(--red); }
+  #anomaly-banner.show { display: block; }
+  #controls { display: flex; align-items: center; gap: 8px;
+    padding: 10px 18px; flex-wrap: wrap; }
+  #controls button { background: #21262d; color: var(--fg);
+    border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px;
+    font: inherit; cursor: pointer; }
+  #controls button:hover { border-color: var(--blue); }
+  #controls button.active { border-color: var(--orange); color: var(--orange); }
+  #step-label { min-width: 220px; color: var(--dim); }
+  #scrub { flex: 1; min-width: 180px; accent-color: var(--blue); }
+  #speed { background: #21262d; color: var(--fg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 5px 6px; font: inherit; }
+  main { display: flex; gap: 0; border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border); }
+  #graph-wrap { flex: 1; overflow: auto; max-height: 72vh; }
+  #graph { display: block; margin: 0 auto; }
+  aside { width: 380px; max-height: 72vh; overflow: auto;
+    border-left: 1px solid var(--border); background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th { position: sticky; top: 0; background: var(--panel); color: var(--dim);
+    text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border);
+    font-weight: 500; }
+  td { padding: 5px 8px; border-bottom: 1px solid #21262d; white-space: nowrap; }
+  tr.row { cursor: pointer; }
+  tr.row:hover td { background: #1c2129; }
+  tr.row.current td { background: #263041; color: #fff; }
+  tr.row.anomaly td.op { color: var(--red); font-weight: 600; }
+  .gnum { color: var(--blue); }
+  .anomaly-text { color: var(--red); font-weight: 600; }
+  .note { color: var(--orange); }
+  footer { padding: 8px 18px; color: var(--dim); font-size: 12px; }
+  svg text { font-family: inherit; }
+
+  .edge { stroke: #2d333b; stroke-width: 1.5; fill: none; }
+  .edge.hot { stroke: var(--blue); stroke-width: 2.2;
+    stroke-dasharray: 7 5; animation: flow .5s linear infinite reverse; }
+  @keyframes flow { to { stroke-dashoffset: -12; } }
+
+  .node rect.box { fill: #161b22; stroke: #3d444d; stroke-width: 1.2; rx: 7; }
+  .node.kind-data rect.box { fill: #14202e; stroke: #2f4a68; }
+  .node.kind-param rect.box { fill: #142519; stroke: #2e6b45; }
+  .node.done rect.box { stroke: var(--blue); stroke-width: 2; }
+  .node.active rect.box { stroke: var(--orange); stroke-width: 3;
+    filter: drop-shadow(0 0 6px rgba(210,153,34,.8)); }
+  .node.anomaly rect.box { stroke: var(--red); stroke-width: 2.5;
+    fill: #2d1416; }
+  .node .title { fill: #e6edf3; font-weight: 600; }
+  .node.kind-param .title { fill: #7ee2a8; }
+  .node.kind-data .title { fill: #79c0ff; }
+  .node .sub { fill: var(--dim); font-size: 10.5px; }
+  .node .gtext { fill: #30363d; font-size: 11px; }
+  .node.done .gtext { fill: var(--blue); }
+  .node.anomaly .gtext { fill: var(--red); }
+  .node .gbar { fill: #21262d; }
+  .node .gbar-fill { fill: var(--blue); opacity: 0; transition: opacity .25s; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="lens">GradLens</span> Backprop Film</h1>
+  <div id="meta"></div>
+</header>
+<div id="anomaly-banner"></div>
+<div id="controls">
+  <button id="btn-reset" title="reset">&#9198;</button>
+  <button id="btn-prev" title="previous op (Left)">&#9664;</button>
+  <button id="btn-play" title="play / pause (Space)">&#9654;</button>
+  <button id="btn-next" title="next op (Right)">&#9197;</button>
+  <span id="step-label"></span>
+  <input type="range" id="scrub" min="0" max="0" value="0" step="1">
+  <select id="speed">
+    <option value="1500">0.5&times;</option>
+    <option value="700" selected>1&times;</option>
+    <option value="320">2&times;</option>
+    <option value="120">4&times;</option>
+  </select>
+</div>
+<main>
+  <div id="graph-wrap"><svg id="graph" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  <aside><table>
+    <thead><tr><th>#</th><th>op</th><th>label</th><th>shape</th><th>|g|</th><th>notes</th></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table></aside>
+</main>
+<footer>generated by <code>gradlens.film</code> &mdash; single file, zero dependencies</footer>
+<script>
+window.__filmErr = null;
+window.addEventListener('error', e => {
+  window.__filmErr = (e.message || '') + '\n' + (e.stack || e.filename || '');
+});
+const FILM = __FILM_JSON__;
+
+// ---- layout: columns by graph depth (forward flows left -> right) ---------
+const nodes = FILM.nodes, edges = FILM.edges, steps = FILM.steps;
+const depth = nodes.map(() => 0);
+edges.forEach(([a, b]) => { depth[b] = Math.max(depth[b], depth[a] + 1); });
+const cols = [];
+nodes.forEach((n, i) => { (cols[depth[i]] || (cols[depth[i]] = [])).push(i); });
+
+const NW = 168, NH = 64, COLW = 220, VGAP = 30, PAD = 40;
+const colH = c => c.length * NH + (c.length - 1) * VGAP;
+const H = Math.max(...cols.map(colH)) + 2 * PAD;
+const W = cols.length * COLW + 2 * PAD;
+const pos = [];
+cols.forEach((colIds, ci) => {
+  const y0 = (H - colH(colIds)) / 2 + PAD;
+  colIds.forEach((idx, ri) => { pos[idx] = { x: PAD + ci * COLW, y: y0 + ri * (NH + VGAP) }; });
+});
+
+// node id -> step index that lights it (or -1: no grad path)
+const stepOf = nodes.map(() => -1);
+steps.forEach(s => { stepOf[s.node] = s.index; });
+const anomalyNode = new Set(steps.filter(s => s.nan || s.inf).map(s => s.node));
+
+const svg = document.getElementById('graph');
+svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+svg.setAttribute('width', Math.min(W, 1500));
+svg.style.minWidth = Math.min(W, 1100) + 'px';
+const NS = 'http://www.w3.org/2000/svg';
+const mk = (tag, attrs) => {
+  const el = document.createElementNS(NS, tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+};
+
+function fmtG(v, nan, inf) {
+  if (nan) return 'NaN';
+  if (inf) return '\u221e';
+  if (v == null) return '\u2013';
+  if (v === 0) return '0';
+  if (Math.abs(v) >= 1e4 || Math.abs(v) < 1e-3) return v.toExponential(1);
+  return String(Math.round(v * 1000) / 1000);
+}
+
+// ---- edges -----------------------------------------------------------------
+const edgeEls = edges.map(([a, b]) => {
+  const p1 = pos[a], p2 = pos[b];
+  const x1 = p1.x + NW, y1 = p1.y + NH / 2;
+  const x2 = p2.x, y2 = p2.y + NH / 2;
+  const mx = (x1 + x2) / 2;
+  const el = mk('path', { class: 'edge', d: `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}` });
+  svg.appendChild(el);
+  return { el, to: b };
+});
+
+// ---- nodes -----------------------------------------------------------------
+const nodeEls = nodes.map((n, i) => {
+  const p = pos[i];
+  const g = mk('g', { class: `node kind-${n.kind}`, transform: `translate(${p.x},${p.y})` });
+  g.appendChild(mk('rect', { class: 'box', width: NW, height: NH, rx: 7 }));
+  const title = n.label || n.op;
+  g.appendChild(mk('text', { class: 'title', x: 10, y: 19 })).textContent =
+    title.length > 22 ? title.slice(0, 21) + '\u2026' : title;
+  g.appendChild(mk('text', { class: 'sub', x: 10, y: 34 })).textContent =
+    `${n.op}  ${JSON.stringify(n.shape)}`;
+  const gt = g.appendChild(mk('text', { class: 'gtext', x: 10, y: 49 }));
+  gt.textContent = '|g| \u2013';
+  g.appendChild(mk('rect', { class: 'gbar', x: 10, y: 53, width: NW - 20, height: 5, rx: 2.5 }));
+  const fill = g.appendChild(mk('rect', { class: 'gbar-fill', x: 10, y: 53, width: 0, height: 5, rx: 2.5 }));
+  svg.appendChild(g);
+  return { g, gt, fill };
+});
+
+// ---- side table --------------------------------------------------------------
+const tbody = document.getElementById('tbody');
+const rowEls = steps.map(s => {
+  const tr = document.createElement('tr');
+  tr.className = 'row' + ((s.nan || s.inf) ? ' anomaly' : '');
+  const noteTxt = s.notes.join('; ');
+  const gHtml = (s.nan || s.inf)
+    ? `<span class="anomaly-text">${fmtG(s.gn, s.nan, s.inf)}</span>`
+    : `<span class="gnum">${fmtG(s.gn, false, false)}</span>`;
+  tr.innerHTML = `<td>${s.index}</td><td class="op">${s.op}</td>` +
+    `<td>${s.label || ''}</td><td>${JSON.stringify(s.shape)}</td>` +
+    `<td>${gHtml}</td><td class="note">${noteTxt}</td>`;
+  tr.addEventListener('click', () => seek(s.index));
+  tbody.appendChild(tr);
+  return tr;
+});
+
+// ---- player state ------------------------------------------------------------
+let cur = 0;            // index of the current step (-1 = before the start)
+let playing = false;
+let timer = null;
+
+function render() {
+  // nodes: done = step <= cur, active = step == cur
+  nodes.forEach((n, i) => {
+    const el = nodeEls[i];
+    const si = stepOf[i];
+    const done = si !== -1 && si <= cur;
+    const active = si !== -1 && si === cur;   // no-grad nodes are never active
+    el.g.classList.toggle('done', done);
+    el.g.classList.toggle('active', active);
+    el.g.classList.toggle('anomaly', anomalyNode.has(i));
+    if (done || active) {
+      const s = steps[si];
+      el.gt.textContent = '|g| ' + fmtG(s.gn, s.nan, s.inf);
+      const t = s.gn == null ? 0.85 : Math.min(1, Math.max(0, (Math.log10(Math.max(s.gn, 1e-9)) + 9) / 12));
+      el.fill.setAttribute('width', (NW - 20) * t);
+      el.fill.style.opacity = 0.9;
+      el.fill.setAttribute('fill', (s.nan || s.inf) ? 'var(--red)' : 'var(--blue)');
+    } else {
+      el.gt.textContent = '|g| \u2013';
+      el.fill.style.opacity = 0;
+    }
+  });
+  // an edge has carried gradient once its consumer node is done
+  edgeEls.forEach(e => e.el.classList.toggle('hot', stepOf[e.to] !== -1 && stepOf[e.to] <= cur));
+  // header + controls
+  const s = cur >= 0 ? steps[cur] : null;
+  document.getElementById('step-label').textContent = s
+    ? `step ${s.index + 1}/${steps.length}  ${s.op}  ${s.label || ''}  |g|=${fmtG(s.gn, s.nan, s.inf)}`
+    : `0/${steps.length}  (press play)`;
+  document.getElementById('scrub').value = Math.max(cur, 0);
+  rowEls.forEach((tr, i) => {
+    tr.classList.toggle('current', i === cur);
+    if (i === cur) tr.scrollIntoView({ block: 'nearest' });
+  });
+  document.getElementById('btn-play').innerHTML = playing ? '&#10074;&#10074;' : '&#9654;';
+  document.getElementById('btn-play').classList.toggle('active', playing);
+}
+
+function seek(i) {
+  cur = Math.max(-1, Math.min(steps.length - 1, i));
+  render();
+}
+function step(d) { pause(); seek(cur + d); }
+function play() {
+  if (playing) return;
+  if (cur >= steps.length - 1) cur = -1;      // replay from the start
+  playing = true;
+  const tick = () => {
+    if (cur >= steps.length - 1) { pause(); return; }
+    seek(cur + 1);
+  };
+  timer = setInterval(tick, parseInt(document.getElementById('speed').value, 10));
+  render();
+}
+function pause() {
+  playing = false;
+  if (timer) clearInterval(timer), timer = null;
+  render();
+}
+
+document.getElementById('btn-play').addEventListener('click', () => playing ? pause() : play());
+document.getElementById('btn-next').addEventListener('click', () => step(1));
+document.getElementById('btn-prev').addEventListener('click', () => step(-1));
+document.getElementById('btn-reset').addEventListener('click', () => { pause(); seek(-1); });
+document.getElementById('scrub').addEventListener('input', e => { pause(); seek(parseInt(e.target.value, 10)); });
+document.getElementById('speed').addEventListener('change', () => { if (playing) { pause(); play(); } });
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') { step(1); e.preventDefault(); }
+  else if (e.key === 'ArrowLeft') { step(-1); e.preventDefault(); }
+  else if (e.key === ' ') { playing ? pause() : play(); e.preventDefault(); }
+});
+
+// ---- header ------------------------------------------------------------------
+document.getElementById('meta').textContent =
+  `${FILM.name}  \u00b7  ${nodes.length} nodes  \u00b7  ${steps.length} backward steps  ` +
+  `\u00b7  gradient flows right \u2192 left`;
+document.getElementById('scrub').max = steps.length - 1;
+const firstAnom = steps.findIndex(s => s.nan || s.inf);
+if (firstAnom !== -1) {
+  const s = steps[firstAnom];
+  const banner = document.getElementById('anomaly-banner');
+  banner.classList.add('show');
+  banner.textContent = `anomaly: step ${s.index} (${s.op}${s.label ? ' ' + s.label : ''}) ` +
+    `first produced ${s.nan ? 'NaN' : 'Inf'} in the gradient -- everything downstream is contaminated`;
+}
+
+cur = -1;
+window.__state = () => ({ cur, playing, steps: steps.length });
+render();
+setTimeout(play, 700);
+</script>
+</body>
+</html>
+"""

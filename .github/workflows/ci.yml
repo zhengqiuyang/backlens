@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: pip install -e .[dev]
+      - name: Test
+        run: pytest -q
+
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e .
+      - name: Run examples
+        run: |
+          python examples/01_getting_started.py
+          python examples/02_spiral_classifier.py
+          python examples/03_backprop_debugger.py
+          python examples/04_gradcheck.py
+          python examples/05_backprop_film.py
+
+  onnx:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e .[onnx]
+      - name: Test (incl. onnxruntime parity + real mnist-8 model)
+        run: pytest -q
+      - name: Run ONNX examples
+        run: |
+          python examples/06_onnx_model.py
+          python examples/07_export_onnx.py
+
+  puzzles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e .
+      - name: Run puzzle example
+        run: python examples/08_puzzles.py
