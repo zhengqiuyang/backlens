@@ -5,9 +5,11 @@
 [![CI](https://img.shields.io/badge/CI-github--actions-blue)](.github/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/tests-137%20passed-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-166%20passed-brightgreen)](tests/)
 
 [English](README.md) | **中文**
+
+![反传影片：逐算子看梯度流过网络](docs/demo_film.gif)
 
 > **曾用名 GradLens** —— 趁零用户早期改名，因为 `gradlens` 在 PyPI 上已被一个
 > 无关的 PyTorch 监控工具占用，继续用会有装错包的风险。今后是
@@ -196,7 +198,7 @@ film_backward(loss).save_html("film.html") # 给真实 CNN 的反传放动画
 ```
 
 **与 onnxruntime 交叉验证**：mnist-8 的 logits 最大差 1.4e-6；加载图的梯度与
-有限差分一致；微调示例把 loss 从 2.29 降到 0.0017。支持 28 个算子：
+有限差分一致；微调示例把 loss 从 2.29 降到 0.0017。支持 37 个算子：
 Gemm/MatMul、Add/Mul/Div/…、Conv（im2col，strides/pads/SAME_*）、MaxPool、
 Softmax（新/旧 opset 语义都支持）、Reshape/Flatten/Transpose/Concat/
 Squeeze/Unsqueeze、ReduceSum/ReduceMean、GlobalAveragePool 等——不支持的算子
@@ -262,12 +264,49 @@ flow.save_html("flow.html")     # Sankey 风格流向图
 
 - [`docs/demo_flow.html`](docs/demo_flow.html) —— 训练好的螺旋 MLP 的梯度流
 
+### 12. `film.save_gif` —— 把影片带出浏览器
+
+同样的动画渲染成 GIF（可选 Pillow 依赖），可以直接内嵌 README、PR 和聊天
+窗口——不需要浏览器。本 README 顶部的演示就是
+`film_backward(...).save_gif("demo_film.gif")` 生成的。
+
+```bash
+pip install backlens[gif]
+```
+
+### 13. `GradientFlowTimeline` —— 训练全程的梯度份额演化
+
+`gradient_flow` 是快照，timeline 是"谁吃梯度"的电影。螺旋示例里，中间层的
+份额从 46% 跌到 17%，输出层从 32% 涨到 49%。
+
+```python
+tl = GradientFlowTimeline()
+for step in range(200):
+    loss.backward()
+    if step % 10 == 0:
+        tl.snapshot(loss, step=step)
+    opt.step()
+tl.save_html("flow_timeline.html")   # 堆叠面积图，零依赖
+```
+
+- [`docs/demo_flow_timeline.html`](docs/demo_flow_timeline.html) —— 螺旋训练的演化图
+
+### 14. `load_torch_state_dict` —— torch 权重，无需安装 torch
+
+把 PyTorch checkpoint 拷进结构对应的 BackLens 模型（按顺序 + 形状匹配，
+Linear 权重自动 `(out,in) → (in,out)` 转置），然后调试 / 放影片 / 导出
+——只有读 checkpoint 时才需要 torch。
+
+```python
+backlens.load_torch_state_dict(model, torch_mlp.state_dict())
+```
+
 ## 安装与快速上手
 
 ```bash
 pip install -e .            # 克隆后本地安装；运行时唯一依赖是 numpy
 pip install -e .[onnx]      # 可选：加载/运行 ONNX 模型
-pytest                      # 137 个测试，<1 秒
+pytest                      # 166 个测试，<1 秒
 
 python examples/01_getting_started.py
 python examples/02_spiral_classifier.py     # 三分类螺旋 99% 准确率 + ASCII 决策边界
@@ -292,7 +331,9 @@ backlens/
 ├── onnx_loader.py  # ONNX 模型 → BackLens 计算图（可选依赖）
 ├── onnx_export.py   # BackLens 模型 → ONNX（此处训练，随处部署）
 ├── puzzles.py       # 自动微分谜题：破案学反传
-└── flow.py          # 梯度流：谁吃掉了梯度（Sankey HTML）
+├── flow.py           # 梯度流 + 时间线：谁吃掉了梯度
+├── torch_bridge.py   # 加载 PyTorch state_dict（无需安装 torch）
+└── film GIF 导出     # film.save_gif() 用于 README 和 PR
 ```
 
 ## 与 micrograd 的基准对比（诚实数字）

@@ -117,168 +117,31 @@ const FILM = {
    "id": 0,
    "op": "leaf",
    "label": "",
-   "shape": [
-    1,
-    1,
-    28,
-    28
-   ],
+   "shape": [],
    "kind": "data"
   },
   {
    "id": 1,
    "op": "leaf",
-   "label": "Parameter5",
+   "label": "",
    "shape": [
-    8,
     1,
-    5,
-    5
+    10
    ],
-   "kind": "param"
+   "kind": "data"
   },
   {
    "id": 2,
-   "op": "conv2d",
-   "label": "",
+   "op": "leaf",
+   "label": "Parameter194",
    "shape": [
     1,
-    8,
-    28,
-    28
+    10
    ],
-   "kind": "op"
+   "kind": "param"
   },
   {
    "id": 3,
-   "op": "leaf",
-   "label": "Parameter6",
-   "shape": [
-    8,
-    1,
-    1
-   ],
-   "kind": "param"
-  },
-  {
-   "id": 4,
-   "op": "add",
-   "label": "",
-   "shape": [
-    1,
-    8,
-    28,
-    28
-   ],
-   "kind": "op"
-  },
-  {
-   "id": 5,
-   "op": "relu",
-   "label": "",
-   "shape": [
-    1,
-    8,
-    28,
-    28
-   ],
-   "kind": "op"
-  },
-  {
-   "id": 6,
-   "op": "maxpool2d",
-   "label": "",
-   "shape": [
-    1,
-    8,
-    14,
-    14
-   ],
-   "kind": "op"
-  },
-  {
-   "id": 7,
-   "op": "leaf",
-   "label": "Parameter87",
-   "shape": [
-    16,
-    8,
-    5,
-    5
-   ],
-   "kind": "param"
-  },
-  {
-   "id": 8,
-   "op": "conv2d",
-   "label": "",
-   "shape": [
-    1,
-    16,
-    14,
-    14
-   ],
-   "kind": "op"
-  },
-  {
-   "id": 9,
-   "op": "leaf",
-   "label": "Parameter88",
-   "shape": [
-    16,
-    1,
-    1
-   ],
-   "kind": "param"
-  },
-  {
-   "id": 10,
-   "op": "add",
-   "label": "",
-   "shape": [
-    1,
-    16,
-    14,
-    14
-   ],
-   "kind": "op"
-  },
-  {
-   "id": 11,
-   "op": "relu",
-   "label": "",
-   "shape": [
-    1,
-    16,
-    14,
-    14
-   ],
-   "kind": "op"
-  },
-  {
-   "id": 12,
-   "op": "maxpool2d",
-   "label": "",
-   "shape": [
-    1,
-    16,
-    4,
-    4
-   ],
-   "kind": "op"
-  },
-  {
-   "id": 13,
-   "op": "reshape",
-   "label": "",
-   "shape": [
-    1,
-    256
-   ],
-   "kind": "op"
-  },
-  {
-   "id": 14,
    "op": "leaf",
    "label": "Parameter193",
    "shape": [
@@ -290,7 +153,7 @@ const FILM = {
    "kind": "param"
   },
   {
-   "id": 15,
+   "id": 4,
    "op": "reshape",
    "label": "",
    "shape": [
@@ -300,7 +163,171 @@ const FILM = {
    "kind": "op"
   },
   {
+   "id": 5,
+   "op": "leaf",
+   "label": "Parameter88",
+   "shape": [
+    16,
+    1,
+    1
+   ],
+   "kind": "param"
+  },
+  {
+   "id": 6,
+   "op": "leaf",
+   "label": "Parameter87",
+   "shape": [
+    16,
+    8,
+    5,
+    5
+   ],
+   "kind": "param"
+  },
+  {
+   "id": 7,
+   "op": "leaf",
+   "label": "Parameter6",
+   "shape": [
+    8,
+    1,
+    1
+   ],
+   "kind": "param"
+  },
+  {
+   "id": 8,
+   "op": "leaf",
+   "label": "Parameter5",
+   "shape": [
+    8,
+    1,
+    5,
+    5
+   ],
+   "kind": "param"
+  },
+  {
+   "id": 9,
+   "op": "leaf",
+   "label": "",
+   "shape": [
+    1,
+    1,
+    28,
+    28
+   ],
+   "kind": "data"
+  },
+  {
+   "id": 10,
+   "op": "conv2d",
+   "label": "",
+   "shape": [
+    1,
+    8,
+    28,
+    28
+   ],
+   "kind": "op"
+  },
+  {
+   "id": 11,
+   "op": "add",
+   "label": "",
+   "shape": [
+    1,
+    8,
+    28,
+    28
+   ],
+   "kind": "op"
+  },
+  {
+   "id": 12,
+   "op": "relu",
+   "label": "",
+   "shape": [
+    1,
+    8,
+    28,
+    28
+   ],
+   "kind": "op"
+  },
+  {
+   "id": 13,
+   "op": "maxpool2d",
+   "label": "",
+   "shape": [
+    1,
+    8,
+    14,
+    14
+   ],
+   "kind": "op"
+  },
+  {
+   "id": 14,
+   "op": "conv2d",
+   "label": "",
+   "shape": [
+    1,
+    16,
+    14,
+    14
+   ],
+   "kind": "op"
+  },
+  {
+   "id": 15,
+   "op": "add",
+   "label": "",
+   "shape": [
+    1,
+    16,
+    14,
+    14
+   ],
+   "kind": "op"
+  },
+  {
    "id": 16,
+   "op": "relu",
+   "label": "",
+   "shape": [
+    1,
+    16,
+    14,
+    14
+   ],
+   "kind": "op"
+  },
+  {
+   "id": 17,
+   "op": "maxpool2d",
+   "label": "",
+   "shape": [
+    1,
+    16,
+    4,
+    4
+   ],
+   "kind": "op"
+  },
+  {
+   "id": 18,
+   "op": "reshape",
+   "label": "",
+   "shape": [
+    1,
+    256
+   ],
+   "kind": "op"
+  },
+  {
+   "id": 19,
    "op": "matmul",
    "label": "",
    "shape": [
@@ -310,17 +337,7 @@ const FILM = {
    "kind": "op"
   },
   {
-   "id": 17,
-   "op": "leaf",
-   "label": "Parameter194",
-   "shape": [
-    1,
-    10
-   ],
-   "kind": "param"
-  },
-  {
-   "id": 18,
+   "id": 20,
    "op": "add",
    "label": "",
    "shape": [
@@ -330,21 +347,21 @@ const FILM = {
    "kind": "op"
   },
   {
-   "id": 19,
+   "id": 21,
    "op": "max",
    "label": "",
    "shape": [],
    "kind": "op"
   },
   {
-   "id": 20,
+   "id": 22,
    "op": "neg",
    "label": "",
    "shape": [],
    "kind": "op"
   },
   {
-   "id": 21,
+   "id": 23,
    "op": "add",
    "label": "",
    "shape": [
@@ -354,7 +371,7 @@ const FILM = {
    "kind": "op"
   },
   {
-   "id": 22,
+   "id": 24,
    "op": "exp",
    "label": "",
    "shape": [
@@ -364,28 +381,8 @@ const FILM = {
    "kind": "op"
   },
   {
-   "id": 23,
-   "op": "sum",
-   "label": "",
-   "shape": [
-    1,
-    1
-   ],
-   "kind": "op"
-  },
-  {
-   "id": 24,
-   "op": "log",
-   "label": "",
-   "shape": [
-    1,
-    1
-   ],
-   "kind": "op"
-  },
-  {
    "id": 25,
-   "op": "neg",
+   "op": "sum",
    "label": "",
    "shape": [
     1,
@@ -395,6 +392,26 @@ const FILM = {
   },
   {
    "id": 26,
+   "op": "log",
+   "label": "",
+   "shape": [
+    1,
+    1
+   ],
+   "kind": "op"
+  },
+  {
+   "id": 27,
+   "op": "neg",
+   "label": "",
+   "shape": [
+    1,
+    1
+   ],
+   "kind": "op"
+  },
+  {
+   "id": 28,
    "op": "add",
    "label": "",
    "shape": [
@@ -404,17 +421,7 @@ const FILM = {
    "kind": "op"
   },
   {
-   "id": 27,
-   "op": "leaf",
-   "label": "",
-   "shape": [
-    1,
-    10
-   ],
-   "kind": "data"
-  },
-  {
-   "id": 28,
+   "id": 29,
    "op": "mul",
    "label": "",
    "shape": [
@@ -424,18 +431,11 @@ const FILM = {
    "kind": "op"
   },
   {
-   "id": 29,
+   "id": 30,
    "op": "sum",
    "label": "",
    "shape": [],
    "kind": "op"
-  },
-  {
-   "id": 30,
-   "op": "leaf",
-   "label": "",
-   "shape": [],
-   "kind": "data"
   },
   {
    "id": 31,
@@ -454,47 +454,23 @@ const FILM = {
  ],
  "edges": [
   [
-   0,
-   2
-  ],
-  [
-   1,
-   2
-  ],
-  [
-   2,
-   4
-  ],
-  [
    3,
    4
-  ],
-  [
-   4,
-   5
-  ],
-  [
-   5,
-   6
-  ],
-  [
-   6,
-   8
-  ],
-  [
-   7,
-   8
-  ],
-  [
-   8,
-   10
   ],
   [
    9,
    10
   ],
   [
+   8,
+   10
+  ],
+  [
    10,
+   11
+  ],
+  [
+   7,
    11
   ],
   [
@@ -506,12 +482,20 @@ const FILM = {
    13
   ],
   [
+   13,
+   14
+  ],
+  [
+   6,
+   14
+  ],
+  [
    14,
    15
   ],
   [
-   13,
-   16
+   5,
+   15
   ],
   [
    15,
@@ -519,7 +503,7 @@ const FILM = {
   ],
   [
    16,
-   18
+   17
   ],
   [
    17,
@@ -530,12 +514,16 @@ const FILM = {
    19
   ],
   [
+   4,
+   19
+  ],
+  [
    19,
    20
   ],
   [
-   18,
-   21
+   2,
+   20
   ],
   [
    20,
@@ -544,6 +532,10 @@ const FILM = {
   [
    21,
    22
+  ],
+  [
+   20,
+   23
   ],
   [
    22,
@@ -558,15 +550,15 @@ const FILM = {
    25
   ],
   [
-   21,
-   26
-  ],
-  [
    25,
    26
   ],
   [
    26,
+   27
+  ],
+  [
+   23,
    28
   ],
   [
@@ -578,11 +570,19 @@ const FILM = {
    29
   ],
   [
+   1,
+   29
+  ],
+  [
    29,
-   31
+   30
   ],
   [
    30,
+   31
+  ],
+  [
+   0,
    31
   ],
   [
@@ -617,7 +617,7 @@ const FILM = {
   },
   {
    "index": 2,
-   "node": 29,
+   "node": 30,
    "op": "sum",
    "label": "",
    "shape": [],
@@ -629,7 +629,7 @@ const FILM = {
   },
   {
    "index": 3,
-   "node": 28,
+   "node": 29,
    "op": "mul",
    "label": "",
    "shape": [
@@ -644,7 +644,7 @@ const FILM = {
   },
   {
    "index": 4,
-   "node": 26,
+   "node": 28,
    "op": "add",
    "label": "",
    "shape": [
@@ -659,7 +659,7 @@ const FILM = {
   },
   {
    "index": 5,
-   "node": 25,
+   "node": 27,
    "op": "neg",
    "label": "",
    "shape": [
@@ -674,7 +674,7 @@ const FILM = {
   },
   {
    "index": 6,
-   "node": 24,
+   "node": 26,
    "op": "log",
    "label": "",
    "shape": [
@@ -689,7 +689,7 @@ const FILM = {
   },
   {
    "index": 7,
-   "node": 23,
+   "node": 25,
    "op": "sum",
    "label": "",
    "shape": [
@@ -704,7 +704,7 @@ const FILM = {
   },
   {
    "index": 8,
-   "node": 22,
+   "node": 24,
    "op": "exp",
    "label": "",
    "shape": [
@@ -719,7 +719,7 @@ const FILM = {
   },
   {
    "index": 9,
-   "node": 21,
+   "node": 23,
    "op": "add",
    "label": "",
    "shape": [
@@ -734,7 +734,7 @@ const FILM = {
   },
   {
    "index": 10,
-   "node": 20,
+   "node": 22,
    "op": "neg",
    "label": "",
    "shape": [],
@@ -748,7 +748,7 @@ const FILM = {
   },
   {
    "index": 11,
-   "node": 19,
+   "node": 21,
    "op": "max",
    "label": "",
    "shape": [],
@@ -762,7 +762,7 @@ const FILM = {
   },
   {
    "index": 12,
-   "node": 18,
+   "node": 20,
    "op": "add",
    "label": "",
    "shape": [
@@ -777,22 +777,7 @@ const FILM = {
   },
   {
    "index": 13,
-   "node": 17,
-   "op": "leaf",
-   "label": "Parameter194",
-   "shape": [
-    1,
-    10
-   ],
-   "gn": 0.0038065163423548916,
-   "gx": 0.0033230693279872707,
-   "nan": false,
-   "inf": false,
-   "notes": []
-  },
-  {
-   "index": 14,
-   "node": 16,
+   "node": 19,
    "op": "matmul",
    "label": "",
    "shape": [
@@ -806,40 +791,8 @@ const FILM = {
    "notes": []
   },
   {
-   "index": 15,
-   "node": 15,
-   "op": "reshape",
-   "label": "",
-   "shape": [
-    256,
-    10
-   ],
-   "gn": 0.02918644892992645,
-   "gx": 0.007770761260887026,
-   "nan": false,
-   "inf": false,
-   "notes": []
-  },
-  {
-   "index": 16,
-   "node": 14,
-   "op": "leaf",
-   "label": "Parameter193",
-   "shape": [
-    16,
-    4,
-    4,
-    10
-   ],
-   "gn": 0.05883625198233406,
-   "gx": 0.015664557647669778,
-   "nan": false,
-   "inf": false,
-   "notes": []
-  },
-  {
-   "index": 17,
-   "node": 13,
+   "index": 14,
+   "node": 18,
    "op": "reshape",
    "label": "",
    "shape": [
@@ -853,8 +806,8 @@ const FILM = {
    "notes": []
   },
   {
-   "index": 18,
-   "node": 12,
+   "index": 15,
+   "node": 17,
    "op": "maxpool2d",
    "label": "",
    "shape": [
@@ -870,8 +823,8 @@ const FILM = {
    "notes": []
   },
   {
-   "index": 19,
-   "node": 11,
+   "index": 16,
+   "node": 16,
    "op": "relu",
    "label": "",
    "shape": [
@@ -887,8 +840,8 @@ const FILM = {
    "notes": []
   },
   {
-   "index": 20,
-   "node": 10,
+   "index": 17,
+   "node": 15,
    "op": "add",
    "label": "",
    "shape": [
@@ -904,24 +857,8 @@ const FILM = {
    "notes": []
   },
   {
-   "index": 21,
-   "node": 9,
-   "op": "leaf",
-   "label": "Parameter88",
-   "shape": [
-    16,
-    1,
-    1
-   ],
-   "gn": 0.003958769776867088,
-   "gx": 0.0033519811169696067,
-   "nan": false,
-   "inf": false,
-   "notes": []
-  },
-  {
-   "index": 22,
-   "node": 8,
+   "index": 18,
+   "node": 14,
    "op": "conv2d",
    "label": "",
    "shape": [
@@ -937,25 +874,8 @@ const FILM = {
    "notes": []
   },
   {
-   "index": 23,
-   "node": 7,
-   "op": "leaf",
-   "label": "Parameter87",
-   "shape": [
-    16,
-    8,
-    5,
-    5
-   ],
-   "gn": 0.08097672657630876,
-   "gx": 0.011374828609789361,
-   "nan": false,
-   "inf": false,
-   "notes": []
-  },
-  {
-   "index": 24,
-   "node": 6,
+   "index": 19,
+   "node": 13,
    "op": "maxpool2d",
    "label": "",
    "shape": [
@@ -971,8 +891,8 @@ const FILM = {
    "notes": []
   },
   {
-   "index": 25,
-   "node": 5,
+   "index": 20,
+   "node": 12,
    "op": "relu",
    "label": "",
    "shape": [
@@ -988,8 +908,8 @@ const FILM = {
    "notes": []
   },
   {
-   "index": 26,
-   "node": 4,
+   "index": 21,
+   "node": 11,
    "op": "add",
    "label": "",
    "shape": [
@@ -1005,24 +925,8 @@ const FILM = {
    "notes": []
   },
   {
-   "index": 27,
-   "node": 3,
-   "op": "leaf",
-   "label": "Parameter6",
-   "shape": [
-    8,
-    1,
-    1
-   ],
-   "gn": 0.00699210163747571,
-   "gx": 0.004854406902286194,
-   "nan": false,
-   "inf": false,
-   "notes": []
-  },
-  {
-   "index": 28,
-   "node": 2,
+   "index": 22,
+   "node": 10,
    "op": "conv2d",
    "label": "",
    "shape": [
@@ -1038,8 +942,8 @@ const FILM = {
    "notes": []
   },
   {
-   "index": 29,
-   "node": 1,
+   "index": 23,
+   "node": 8,
    "op": "leaf",
    "label": "Parameter5",
    "shape": [
@@ -1050,6 +954,102 @@ const FILM = {
    ],
    "gn": 0.025982418586393427,
    "gx": 0.0056044090452462975,
+   "nan": false,
+   "inf": false,
+   "notes": []
+  },
+  {
+   "index": 24,
+   "node": 7,
+   "op": "leaf",
+   "label": "Parameter6",
+   "shape": [
+    8,
+    1,
+    1
+   ],
+   "gn": 0.00699210163747571,
+   "gx": 0.004854406902286194,
+   "nan": false,
+   "inf": false,
+   "notes": []
+  },
+  {
+   "index": 25,
+   "node": 6,
+   "op": "leaf",
+   "label": "Parameter87",
+   "shape": [
+    16,
+    8,
+    5,
+    5
+   ],
+   "gn": 0.08097672657630876,
+   "gx": 0.011374828609789361,
+   "nan": false,
+   "inf": false,
+   "notes": []
+  },
+  {
+   "index": 26,
+   "node": 5,
+   "op": "leaf",
+   "label": "Parameter88",
+   "shape": [
+    16,
+    1,
+    1
+   ],
+   "gn": 0.003958769776867088,
+   "gx": 0.0033519811169696067,
+   "nan": false,
+   "inf": false,
+   "notes": []
+  },
+  {
+   "index": 27,
+   "node": 4,
+   "op": "reshape",
+   "label": "",
+   "shape": [
+    256,
+    10
+   ],
+   "gn": 0.02918644892992645,
+   "gx": 0.007770761260887026,
+   "nan": false,
+   "inf": false,
+   "notes": []
+  },
+  {
+   "index": 28,
+   "node": 3,
+   "op": "leaf",
+   "label": "Parameter193",
+   "shape": [
+    16,
+    4,
+    4,
+    10
+   ],
+   "gn": 0.05883625198233406,
+   "gx": 0.015664557647669778,
+   "nan": false,
+   "inf": false,
+   "notes": []
+  },
+  {
+   "index": 29,
+   "node": 2,
+   "op": "leaf",
+   "label": "Parameter194",
+   "shape": [
+    1,
+    10
+   ],
+   "gn": 0.0038065163423548916,
+   "gx": 0.0033230693279872707,
    "nan": false,
    "inf": false,
    "notes": []

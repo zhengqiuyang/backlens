@@ -332,6 +332,96 @@ class Tensor:
         out._backward = _backward
         return out
 
+    def sqrt(self):
+        out = self._make(np.sqrt(self.data), (self,), "sqrt")
+
+        def _backward():
+            if self.requires_grad:
+                self._acc(out.grad / (2.0 * out.data))
+        out._backward = _backward
+        return out
+
+    def clip(self, lo=None, hi=None):
+        """Clamp values to [lo, hi]; None leaves a side unclamped.
+
+        Gradient is zero outside the interval (ONNX Clip semantics).
+        """
+        out = self._make(np.clip(self.data, lo, hi), (self,), "clip",
+                         {"min": lo, "max": hi})
+
+        def _backward():
+            if self.requires_grad:
+                mask = np.ones_like(self.data, dtype=bool)
+                if lo is not None:
+                    mask &= self.data >= lo
+                if hi is not None:
+                    mask &= self.data <= hi
+                self._acc(out.grad * mask)
+        out._backward = _backward
+        return out
+
+    def slice(self, starts, ends, axes, steps=None):
+        """NumPy-style slicing along arbitrary axes (gradient scatters back).
+
+        ``starts``/``ends`` must already be normalized to Python slice
+        semantics (the ONNX loader does its own ONNX-style normalization).
+        """
+        n = len(starts)
+        steps = [1] * n if steps is None else list(steps)
+        starts, ends = list(starts), list(ends)
+        axes = [a % self.ndim for a in axes]
+        slicer = [slice(None)] * self.ndim
+        for s, e, a, st in zip(starts, ends, axes, steps):
+            slicer[a] = slice(s, e, st)
+        key = tuple(slicer)
+        out = self._make(self.data[key], (self,), "slice",
+                         {"starts": starts, "ends": ends,
+                          "axes": axes, "steps": steps})
+
+        def _backward():
+            if self.requires_grad:
+                g = np.zeros_like(self.data)
+                g[key] = out.grad
+                self._acc(g)
+        out._backward = _backward
+        return out
+
+    def gather(self, indices, axis: int = 0):
+        """Take elements along ``axis`` at integer ``indices`` (scatters back)."""
+        idx = np.asarray(indices)
+        if idx.dtype.kind not in "iu":
+            raise TypeError("gather indices must be integers")
+        axis = axis % self.ndim
+        out = self._make(np.take(self.data, idx, axis=axis), (self,),
+                         "gather", {"axis": axis, "indices": idx})
+
+        def _backward():
+            if self.requires_grad:
+                # scatter-ADD: repeated indices must accumulate, so
+                # np.put_along_axis (overwrite semantics) is not enough
+                k = idx.ndim
+                grids = np.indices(out.data.shape)
+                coords = [grids[d] for d in range(axis)]
+                coords.append(idx[tuple(grids[axis:axis + k])])
+                coords += [grids[d] for d in range(axis + k, out.data.ndim)]
+                g = np.zeros_like(self.data)
+                np.add.at(g, tuple(coords), out.grad)
+                self._acc(g)
+        out._backward = _backward
+        return out
+
+    def expand(self, shape):
+        """Broadcast to ``shape`` (gradients sum back down, like ``mul``)."""
+        shape = tuple(int(s) for s in shape)
+        out = self._make(np.broadcast_to(self.data, shape), (self,),
+                         "expand", {"shape": shape})
+
+        def _backward():
+            if self.requires_grad:
+                self._acc(_unbroadcast(out.grad, self.shape))
+        out._backward = _backward
+        return out
+
     # -- reductions / shape ---------------------------------------------------
 
     def sum(self, axis=None, keepdims=False):
@@ -523,15 +613,25 @@ class Tensor:
         self.grad = grad if self.grad is None else self.grad + grad
 
     def _topo(self) -> List["Tensor"]:
-        """Topological order (leaves -> root) of the graph below this node."""
+        """Topological order (leaves -> root) of the graph below this node.
+
+        Iterative DFS with an explicit stack: deep graphs (e.g. unrolled
+        RNNs with thousands of nodes) must not hit Python's recursion limit.
+        """
         topo, visited = [], set()
-        def visit(t: "Tensor"):
-            if id(t) not in visited:
-                visited.add(id(t))
-                for p in t._prev:
-                    visit(p)
-                topo.append(t)
-        visit(self)
+        stack: List[tuple] = [(self, False)]
+        while stack:
+            node, processed = stack.pop()
+            if processed:
+                topo.append(node)
+                continue
+            if id(node) in visited:
+                continue
+            visited.add(id(node))
+            stack.append((node, True))
+            for p in node._prev:
+                if id(p) not in visited:
+                    stack.append((p, False))
         return topo
 
     def backward(self, return_trace: bool = False) -> Optional[List["Tensor"]]:
@@ -576,6 +676,34 @@ class Tensor:
 
     def __eq__(self, other):
         return self.data == Tensor._ensure(other).data
+
+
+def where(cond, a: "Tensor", b: "Tensor") -> "Tensor":
+    """Elementwise select: ``cond`` picks from ``a`` (true) or ``b`` (false).
+
+    ``cond`` may be a Tensor or any array-like; gradients route to the
+    selected branch only. Note for :func:`backlens.onnx_export.export_onnx`:
+    a condition computed in Python (``x.data > 0``) is data-dependent and
+    therefore NOT exportable -- ONNX-side ``Where`` (condition stored in the
+    model) loads fine.
+    """
+    cond_arr = np.asarray(cond.data if isinstance(cond, Tensor) else cond).astype(bool)
+    a, b = Tensor._ensure(a), Tensor._ensure(b)
+    out = Tensor(np.where(cond_arr, a.data, b.data))
+    if _grad_enabled:
+        out._prev = (a, b)
+        out._op = "where"
+        out._attrs = {"cond": cond_arr}   # cond is not a graph node
+        out.requires_grad = a.requires_grad or b.requires_grad
+
+    def _backward():
+        mask = np.broadcast_to(cond_arr, out.data.shape)
+        if a.requires_grad:
+            a._acc(_unbroadcast(out.grad * mask, a.shape))
+        if b.requires_grad:
+            b._acc(_unbroadcast(out.grad * ~mask, b.shape))
+    out._backward = _backward
+    return out
 
 
 def cat(tensors, axis: int = 0) -> "Tensor":

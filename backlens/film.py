@@ -416,3 +416,163 @@ setTimeout(play, 700);
 </body>
 </html>
 """
+
+
+# ---------------------------------------------------------------------------
+# GIF export: renders the same animation with Pillow (optional dependency)
+# ---------------------------------------------------------------------------
+
+def _layout(film: "BackwardFilm"):
+    """Column-by-depth layout shared by the HTML player and the GIF renderer."""
+    n = len(film.nodes)
+    depth = [0] * n
+    for a, b in film.edges:          # edges are [from, to] index pairs
+        depth[b] = max(depth[b], depth[a] + 1)
+    cols = [[] for _ in range(max(depth) + 1)] if n else []
+    for i, d in enumerate(depth):
+        cols[d].append(i)
+    NW, NH, COLW, VGAP, PAD = 170, 60, 225, 26, 30
+    col_h = lambda c: len(c) * NH + (len(c) - 1) * VGAP
+    H = max(map(col_h, cols)) + 2 * PAD
+    W = len(cols) * COLW + 2 * PAD
+    pos = [None] * n
+    for ci, col in enumerate(cols):
+        y0 = (H - col_h(col)) // 2 + PAD
+        for ri, idx in enumerate(col):
+            pos[idx] = (PAD + ci * COLW, y0 + ri * (NH + VGAP))
+    return pos, (W, H), (NW, NH)
+
+
+def _fmt_gif_g(v):
+    if v is None or (isinstance(v, float) and not math.isfinite(v)):
+        return "inf" if v is not None else "-"
+    if v == 0:
+        return "0"
+    if abs(v) >= 1e4 or abs(v) < 1e-3:
+        return f"{v:.1e}"
+    return f"{v:.3g}"
+
+
+def _render_frames(film: "BackwardFilm"):
+    """One PIL image per film state: initial, each backward step, final."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    pos, (W, H), (NW, NH) = _layout(film)
+    BG, PANEL = (13, 17, 23), (22, 27, 34)
+    BORDER, DIM = (61, 68, 77), (139, 148, 158)
+    BLUE, GREEN, ORANGE, RED = (88, 166, 255), (63, 185, 80), (210, 153, 34), (248, 81, 73)
+    FG = (230, 237, 243)
+
+    step_of = [-1] * len(film.nodes)
+    for s in film.steps:
+        step_of[s["node"]] = s["index"]
+    anomaly = {s["node"] for s in film.steps if s["nan"] or s["inf"]}
+    max_mass = max((s["gn"] or 0) for s in film.steps) or 1e-9
+
+    try:
+        font = ImageFont.load_default(size=11)
+        small = ImageFont.load_default(size=9)
+    except TypeError:                       # Pillow < 10.1
+        font = ImageFont.load_default()
+        small = font
+
+    def bezier(p1, p2):
+        (x1, y1), (x2, y2) = p1, p2
+        mx = (x1 + x2) / 2
+        return [( (1-t)**3*x1 + 3*(1-t)**2*t*mx + 3*(1-t)*t**2*mx + t**3*x2,
+                  (1-t)**3*y1 + 3*(1-t)**2*t*y1 + 3*(1-t)*t**2*y2 + t**3*y2 )
+                for t in (i / 24 for i in range(25))]
+
+    def bar_width(gn):
+        if not gn or gn <= 0 or not math.isfinite(gn):
+            return 0.8
+        t = min(1.0, max(0.0, (math.log10(gn) - math.log10(max_mass) + 6) / 6))
+        return 0.8 + t * 5.0
+
+    frames = []
+    for cur in range(-1, len(film.steps)):
+        img = Image.new("RGB", (W, H), BG)
+        d = ImageDraw.Draw(img)
+        # edges: consumer -> producer (right to left), hot when consumer done
+        for e in film.edges:
+            a, b = pos[e[0]], pos[e[1]]
+            hot = step_of[e[1]] != -1 and step_of[e[1]] <= cur
+            col = BLUE if hot else (45, 51, 59)
+            pts = bezier((a[0] + NW, a[1] + NH // 2), (b[0], b[1] + NH // 2))
+            d.line(pts, fill=col, width=2 if hot else 1)
+        # nodes
+        for i, nd in enumerate(film.nodes):
+            x, y = pos[i]
+            si = step_of[i]
+            done = si != -1 and si <= cur
+            active = si != -1 and si == cur
+            is_anom = i in anomaly
+            if is_anom:
+                border = RED
+            elif active:
+                border = ORANGE
+            elif done:
+                border = BLUE
+            elif nd["kind"] == "param":
+                border = (46, 107, 69)
+            elif nd["kind"] == "data":
+                border = (47, 74, 104)
+            else:
+                border = BORDER
+            fill = (45, 20, 22) if is_anom else (
+                (20, 37, 25) if nd["kind"] == "param" else
+                (20, 32, 46) if nd["kind"] == "data" else PANEL)
+            d.rounded_rectangle([x, y, x + NW, y + NH], radius=7,
+                                fill=fill, outline=border,
+                                width=3 if active else 2)
+            title = nd["label"] or nd["op"]
+            if len(title) > 23:
+                title = title[:22] + "…"
+            tcol = (126, 226, 168) if nd["kind"] == "param" else (
+                (121, 192, 255) if nd["kind"] == "data" else FG)
+            d.text((x + 9, y + 6), title, fill=tcol, font=small)
+            d.text((x + 9, y + 21), f'{nd["op"]}  {tuple(nd["shape"])}',
+                   fill=DIM, font=small)
+            if done or active:
+                s = film.steps[si]
+                gtxt = RED if (s["nan"] or s["inf"]) else BLUE
+                d.text((x + 9, y + 36), f'|g| {_fmt_gif_g(s["gn"])}',
+                       fill=gtxt, font=small)
+                if s["gn"] and math.isfinite(s["gn"]) and s["gn"] > 0:
+                    t = min(1.0, max(0.0, (math.log10(s["gn"]) + 9) / 12))
+                    d.rectangle([x + 9, y + 50, x + 9 + (NW - 18) * t, y + 55],
+                                fill=RED if is_anom else BLUE)
+            else:
+                d.text((x + 9, y + 36), "|g| -", fill=(48, 54, 61), font=small)
+        # header
+        if 0 <= cur < len(film.steps):
+            s = film.steps[cur]
+            head = f"step {cur + 1}/{len(film.steps)}  {s['op']}  |g|={_fmt_gif_g(s['gn'])}"
+        else:
+            head = f"0/{len(film.steps)}  (backward pass)"
+        d.text((10, 6), f"BackLens backprop film — {film.name}", fill=FG, font=font)
+        d.text((10, 22), head, fill=ORANGE if cur >= 0 else DIM, font=font)
+        frames.append(img)
+    return frames
+
+
+def save_gif(self: "BackwardFilm", path: str, duration_ms: int = 450,
+             final_hold_ms: int = 2000) -> str:
+    """Render the film as an animated GIF (embeddable in READMEs/PRs).
+
+    Requires Pillow:  pip install backlens[gif]   (or: pip install pillow)
+    """
+    try:
+        from PIL import Image
+    except ImportError as e:                                # pragma: no cover
+        raise ImportError("save_gif needs Pillow: pip install backlens[gif]") from e
+    frames = _render_frames(self)
+    frames[-1].save(
+        path, save_all=True, append_images=frames[1:],
+        duration=[duration_ms] * (len(frames) - 1) + [final_hold_ms],
+        loop=0, optimize=True,
+    )
+    return path
+
+
+BackwardFilm.save_gif = save_gif

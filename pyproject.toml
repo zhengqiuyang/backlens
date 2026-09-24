@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "backlens"
-version = "0.6.0"
+version = "0.7.0"
 description = "A numpy autograd engine with X-ray vision into backpropagation: step-through backward debugging, NaN tracing, gradcheck, Mermaid graphs, an animated backward-pass player, training gradient audits, gradient-flow maps, autodiff puzzles, and verified bidirectional ONNX interop."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -32,7 +32,8 @@ classifiers = [
 dependencies = ["numpy>=1.22"]
 
 [project.optional-dependencies]
-dev = ["pytest>=7", "micrograd"]
+dev = ["pytest>=7", "micrograd", "pillow>=9"]
+gif = ["pillow>=9"]
 onnx = ["onnx>=1.14", "onnxruntime>=1.16"]
 
 [project.urls]

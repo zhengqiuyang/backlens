@@ -22,7 +22,7 @@ Quick tour::
     film_backward(loss).save_html("film.html")   # animated replay in browser
 """
 
-from .engine import Tensor, cat, no_grad, is_grad_enabled, set_op_hook, clear_op_hooks
+from .engine import Tensor, cat, where, no_grad, is_grad_enabled, set_op_hook, clear_op_hooks
 from . import nn
 from .nn import (
     Module, Linear, Conv2d, MaxPool2d, Flatten, Sequential, MLP,
@@ -39,11 +39,12 @@ from .viz import to_mermaid, save_graph_md, to_html, save_graph_html
 from .film import film_backward, BackwardFilm
 from .onnx_loader import load_onnx, analyze_onnx, OnnxModel, OnnxOpError
 from .onnx_export import export_onnx, verify_onnx, VerifyReport, ExportError
-from .flow import gradient_flow, GradientFlow
+from .flow import gradient_flow, GradientFlow, GradientFlowTimeline
+from .torch_bridge import load_torch_state_dict
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 __all__ = [
-    "Tensor", "cat", "no_grad", "is_grad_enabled", "set_op_hook", "clear_op_hooks",
+    "Tensor", "cat", "where", "no_grad", "is_grad_enabled", "set_op_hook", "clear_op_hooks",
     "nn", "Module", "Linear", "Conv2d", "MaxPool2d", "Flatten",
     "Sequential", "MLP", "Tanh", "ReLU", "Sigmoid",
     "mse_loss", "binary_cross_entropy", "cross_entropy",
@@ -55,5 +56,6 @@ __all__ = [
     "film_backward", "BackwardFilm",
     "load_onnx", "analyze_onnx", "OnnxModel", "OnnxOpError",
     "export_onnx", "verify_onnx", "VerifyReport", "ExportError",
-    "gradient_flow", "GradientFlow",
+    "gradient_flow", "GradientFlow", "GradientFlowTimeline",
+    "load_torch_state_dict",
 ]

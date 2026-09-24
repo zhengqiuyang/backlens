@@ -23,12 +23,13 @@ from typing import Dict, List, Optional, Sequence, Union
 from .engine import Tensor, cat
 
 SUPPORTED_OPS = {
-    "Add", "Sub", "Mul", "Div", "Neg", "Abs", "Exp", "Log",
-    "Relu", "Tanh", "Sigmoid", "Softmax",
+    "Add", "Sub", "Mul", "Div", "Neg", "Abs", "Exp", "Log", "Sqrt",
+    "Relu", "LeakyRelu", "Clip", "Tanh", "Sigmoid", "Softmax",
     "MatMul", "Gemm", "Pow", "Sum", "Identity", "Constant",
     "Reshape", "Flatten", "Transpose", "Concat", "Squeeze", "Unsqueeze",
+    "Slice", "Gather", "Expand", "Where", "ConstantOfShape",
     "ReduceSum", "ReduceMean", "GlobalAveragePool",
-    "Conv", "MaxPool",
+    "Conv", "MaxPool", "BatchNormalization",
 }
 
 
@@ -164,8 +165,6 @@ def _b_gap(ins, attrs, opset):
 def _b_conv(ins, attrs, opset):
     x, w = ins[0], ins[1]
     b = ins[2] if len(ins) > 2 else None
-    if int(attrs.get("group", 1)) != 1:
-        raise OnnxOpError("Conv: grouped convolution is not supported")
     dil = list(attrs.get("dilations", [1, 1]))
     if dil != [1, 1]:
         raise OnnxOpError(f"Conv: dilations {dil} != [1, 1] are not supported")
@@ -190,7 +189,22 @@ def _b_conv(ins, attrs, opset):
         # (H_begin, H_end, W_begin, W_end) -- reorder (verified vs onnxruntime)
         p = [int(v) for v in attrs.get("pads", [0, 0, 0, 0])]
         pads = (p[0], p[2], p[1], p[3])
-    return x.conv2d(w, b, stride=stride, pad=pads)
+
+    group = int(attrs.get("group", 1))
+    if group == 1:
+        return x.conv2d(w, b, stride=stride, pad=pads)
+    # grouped convolution expressed with engine ops: slice the channels,
+    # conv each group, concat -- stays fully traceable and differentiable
+    c_in, m_out = x.shape[1], w.shape[0]
+    cg, mg = c_in // group, m_out // group
+    parts = []
+    for g in range(group):
+        xs = x.slice([g * cg], [(g + 1) * cg], [1])
+        ws = w.slice([g * mg], [(g + 1) * mg], [0])
+        bs = b.slice([g * mg], [(g + 1) * mg], [0]) if b is not None else None
+        parts.append(xs.conv2d(ws, bs, stride=stride, pad=pads))
+    from .engine import cat
+    return cat(parts, axis=1)
 
 
 def _b_maxpool(ins, attrs, opset):
@@ -242,6 +256,106 @@ def _b_pow(ins, attrs, opset):
     if e.size != 1:
         raise OnnxOpError("Pow: only scalar exponents are supported")
     return t ** float(e.data.ravel()[0])
+
+
+def _b_slice(ins, attrs, opset):
+    """ONNX Slice. opset >= 10 takes starts/ends/axes/steps as inputs;
+    earlier opsets carry them as attributes (both supported)."""
+    x = ins[0]
+    if opset >= 10:
+        starts = ins[1].data.ravel().astype(np.int64)
+        ends = ins[2].data.ravel().astype(np.int64)
+        axes = ins[3].data.ravel().astype(np.int64)
+        steps = ins[4].data.ravel().astype(np.int64) if len(ins) > 4 else None
+    else:
+        starts = np.asarray(attrs.get("starts", []), dtype=np.int64)
+        ends = np.asarray(attrs.get("ends", []), dtype=np.int64)
+        axes = np.asarray(attrs.get("axes", range(len(starts))), dtype=np.int64)
+        steps = attrs.get("steps")
+    starts, ends, axes = list(starts), list(ends), list(axes)
+    if steps is not None:
+        steps = list(np.asarray(steps, dtype=np.int64))
+    # normalize ONNX wrap-around/clamping to Python slice semantics
+    norm_s, norm_e, steps_n = [], [], []
+    for i, (s, e) in enumerate(zip(starts, ends)):
+        dim = x.shape[axes[i] % x.ndim]
+        st = steps[i] if steps else 1
+        if st > 0:
+            s2 = 0 if s < 0 and s + dim < 0 else (s + dim if s < 0 else min(s, dim))
+            e2 = 0 if e < 0 and e + dim < 0 else (e + dim if e < 0 else min(e, dim))
+        else:
+            s2 = (s + dim if s < 0 else min(s, dim - 1)) if s >= 0 or s + dim >= 0 else -1
+            s2 = dim - 1 if s >= dim else (s + dim if s < 0 else s)
+            s2 = max(-1, min(s2, dim - 1))
+            e2 = (e + dim if e < 0 else min(e, dim - 1))
+            e2 = max(-1, min(e2, dim - 1))
+        norm_s.append(s2); norm_e.append(e2)
+        steps_n.append(int(st))
+    return x.slice(norm_s, norm_e, axes, steps_n)
+
+
+def _b_gather(ins, attrs, opset):
+    axis = int(attrs.get("axis", 0))
+    idx = ins[1].data
+    if idx.dtype.kind not in "iu":
+        idx = idx.astype(np.int64)
+    return ins[0].gather(idx, axis)
+
+
+def _b_expand(ins, attrs, opset):
+    shape = ins[1].data.ravel().astype(np.int64)
+    return ins[0].expand(shape)
+
+
+def _b_where(ins, attrs, opset):
+    from .engine import where
+    return where(ins[0], ins[1], ins[2])
+
+
+def _b_leakyrelu(ins, attrs, opset):
+    alpha = float(attrs.get("alpha", 0.01))
+    x = ins[0]
+    return x.relu() - (-x).relu() * alpha
+
+
+def _b_clip(ins, attrs, opset):
+    if opset >= 11:
+        lo = float(ins[1].data.ravel()[0]) if len(ins) > 1 and ins[1].size else None
+        hi = float(ins[2].data.ravel()[0]) if len(ins) > 2 and ins[2].size else None
+    else:
+        lo = attrs.get("min"); hi = attrs.get("max")
+        lo = None if lo is None else float(lo)
+        hi = None if hi is None else float(hi)
+    return ins[0].clip(lo, hi)
+
+
+def _b_constantofshape(ins, attrs, opset):
+    import onnx.numpy_helper
+    shape = tuple(int(v) for v in ins[0].data.ravel()) if len(ins) else ()
+    value = attrs.get("value")
+    if value is not None:
+        arr = onnx.numpy_helper.to_array(value)
+        fill = arr.dtype.type(arr.ravel()[0])
+    else:
+        fill = 0.0
+    return Tensor(np.full(shape, fill, dtype=np.float64))
+
+
+def _b_batchnorm(ins, attrs, opset):
+    """Inference-mode BatchNormalization (training_mode != 0 is rejected)."""
+    if int(attrs.get("training_mode", 0) or 0):
+        raise OnnxOpError("BatchNormalization: training_mode=1 is not supported "
+                          "(inference only)")
+    x, s, b, mean, var = ins[:5]
+    eps = float(attrs.get("epsilon", 1e-5))
+    stats_shape = [1, s.shape[0]] + [1] * (x.ndim - 2)
+    mean_r = mean.reshape(stats_shape)
+    var_r = var.reshape(stats_shape)
+    s_r = s.reshape(stats_shape)
+    b_r = b.reshape(stats_shape)
+    # (x - mean) / sqrt(var + eps) * s + b -- out of engine ops, fully traceable
+    norm = (x - mean_r) / (var_r + eps).sqrt()
+    return norm * s_r + b_r
 
 
 # ---------------------------------------------------------------------------
@@ -374,6 +488,9 @@ _REGISTRY = {
     "Abs": _b_unary("abs"),
     "Exp": _b_unary("exp"),
     "Log": _b_unary("log"),
+    "Sqrt": _b_unary("sqrt"),
+    "LeakyRelu": _b_leakyrelu,
+    "Clip": _b_clip,
     "Relu": _b_unary("relu"),
     "Tanh": _b_unary("tanh"),
     "Sigmoid": _b_unary("sigmoid"),
@@ -389,6 +506,12 @@ _REGISTRY = {
     "Concat": _b_concat,
     "Squeeze": _b_squeeze,
     "Unsqueeze": _b_unsqueeze,
+    "Slice": _b_slice,
+    "Gather": _b_gather,
+    "Expand": _b_expand,
+    "Where": _b_where,
+    "ConstantOfShape": _b_constantofshape,
+    "BatchNormalization": _b_batchnorm,
     "ReduceSum": _b_reduce("sum"),
     "ReduceMean": _b_reduce("mean"),
     "GlobalAveragePool": _b_gap,

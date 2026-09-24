@@ -32,6 +32,7 @@ _SIMPLE = {
     "matmul": "MatMul",
     "relu": "Relu", "tanh": "Tanh", "sigmoid": "Sigmoid",
     "exp": "Exp", "log": "Log", "abs": "Abs", "neg": "Neg",
+    "sqrt": "Sqrt",
 }
 
 
@@ -54,8 +55,9 @@ def export_onnx(module: Module, dummy_input, path: str,
     out = module(x)
     topo = out._topo()
 
-    allowed = set(_SIMPLE) | {"reshape", "transpose", "cat",
-                              "sum", "mean", "conv2d", "maxpool2d"}
+    allowed = set(_SIMPLE) | {"reshape", "transpose", "cat", "slice",
+                              "gather", "expand", "where",
+                              "sum", "mean", "conv2d", "maxpool2d", "clip"}
     unsupported = sorted({
         t._op for t in topo
         if t._op and not (t._op in allowed or t._op.startswith("pow"))
@@ -115,6 +117,8 @@ def export_onnx(module: Module, dummy_input, path: str,
         elif op in ("sum", "mean"):
             onnx_op = "ReduceSum" if op == "sum" else "ReduceMean"
             axes = t._attrs.get("axis")
+            if axes is not None and not isinstance(axes, (list, tuple)):
+                axes = [axes]
             nodes.append(h.make_node(onnx_op, ins, [nm],
                                      axes=list(axes) if axes is not None else None,
                                      keepdims=int(bool(t._attrs.get("keepdims")))))
@@ -131,6 +135,48 @@ def export_onnx(module: Module, dummy_input, path: str,
                 strides=[attrs["stride"], attrs["stride"]],
                 pads=[ph_b, pw_b, ph_e, pw_e],   # ONNX [Hb, Wb, He, We]
             ))
+        elif op == "slice":
+            a = t._attrs
+            steps = a.get("steps") or [1] * len(a["starts"])
+            nodes.append(h.make_node("Slice", ins, [nm]))  # replaced below
+            nodes.pop()
+            s_name = const_int64(f"{nm}_starts", a["starts"])
+            e_name = const_int64(f"{nm}_ends", a["ends"])
+            ax_name = const_int64(f"{nm}_axes", a["axes"])
+            st_name = const_int64(f"{nm}_steps", steps)
+            nodes.append(h.make_node("Slice",
+                                     [ins[0], s_name, e_name, ax_name, st_name],
+                                     [nm]))
+        elif op == "gather":
+            i_name = add_init(unique(f"{nm}_idx"),
+                              np.asarray(t._attrs["indices"], dtype=np.int64))
+            nodes.append(h.make_node("Gather", [ins[0], i_name], [nm],
+                                     axis=int(t._attrs.get("axis", 0))))
+        elif op == "expand":
+            s_name = const_int64(f"{nm}_shape", t._attrs["shape"])
+            nodes.append(h.make_node("Expand", [ins[0], s_name], [nm]))
+        elif op == "where":
+            # the condition was computed in Python/numpy (e.g. `x.data > 0`),
+            # OUTSIDE the engine graph. Exporting it would freeze the trace-
+            # time values into a constant and silently produce a wrong model
+            # for other inputs -- refuse instead. (ONNX Where IS loadable:
+            # there the condition is part of the model itself.)
+            raise ExportError(
+                "'where' has a data-dependent condition computed outside the "
+                "engine graph (e.g. `x.data > 0`); it cannot be exported "
+                "without a static condition. Load-side Where (condition in "
+                "the model) is unaffected.")
+        elif op == "clip":
+            # opset >= 11: min/max are optional float inputs ("" omits one)
+            lo, hi = t._attrs.get("min"), t._attrs.get("max")
+            ins_c = list(ins)
+            ins_c.append(const_float(f"{nm}_lo", np.array([float(lo)], dtype=np.float32))
+                         if lo is not None else "")
+            ins_c.append(const_float(f"{nm}_hi", np.array([float(hi)], dtype=np.float32))
+                         if hi is not None else "")
+            while ins_c and ins_c[-1] == "":     # trailing optional omitted
+                ins_c.pop()
+            nodes.append(h.make_node("Clip", ins_c, [nm]))
         elif op == "maxpool2d":
             attrs = t._attrs
             k, s = attrs["kernel"], attrs["stride"]

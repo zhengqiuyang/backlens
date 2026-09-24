@@ -5,9 +5,11 @@
 [![CI](https://img.shields.io/badge/CI-github--actions-blue)](.github/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/tests-137%20passed-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-166%20passed-brightgreen)](tests/)
 
 **English** | [中文](README.zh-CN.md)
+
+![Backprop film: watch gradients flow through the network, op by op](docs/demo_film.gif)
 
 > **formerly GradLens** — renamed early (0 stars, zero users, wrong-package
 > risk) because `gradlens` was already taken on PyPI by an unrelated PyTorch
@@ -211,7 +213,7 @@ film_backward(loss).save_html("film.html") # animate a real CNN's backward pass
 
 Verified against **onnxruntime**: mnist-8 logits match to 1.4e-6, gradients
 through the loaded graph agree with finite differences, and the fine-tuning
-demo drives the loss 2.29 → 0.0017. Supported subset (28 ops): Gemm/MatMul,
+demo drives the loss 2.29 → 0.0017. Supported subset (37 ops): Gemm/MatMul,
 Add/Mul/Div/..., Conv (im2col, strides/pads/SAME_*), MaxPool, Softmax
 (modern + legacy opset semantics), Reshape/Flatten/Transpose/Concat/
 Squeeze/Unsqueeze, ReduceSum/ReduceMean, GlobalAveragePool, and more —
@@ -284,12 +286,50 @@ flow.save_html("flow.html")     # Sankey-style map
 
 - [`docs/demo_flow.html`](docs/demo_flow.html) — gradient flow of the trained spiral MLP
 
+### 12. `film.save_gif` — take the film out of the browser
+
+The same animation rendered as a GIF (optional Pillow extra), ready to embed
+in READMEs, PRs, and chat threads — no browser needed. The demo at the top of
+this README is produced by `film_backward(...).save_gif("demo_film.gif")`.
+
+```bash
+pip install backlens[gif]
+```
+
+### 13. `GradientFlowTimeline` — gradient shares across training
+
+`gradient_flow` is a snapshot; the timeline is the movie of who eats the
+gradient as training progresses. On the spiral demo the middle layer's share
+falls 46% → 17% while the output layer rises 32% → 49%.
+
+```python
+tl = GradientFlowTimeline()
+for step in range(200):
+    loss.backward()
+    if step % 10 == 0:
+        tl.snapshot(loss, step=step)
+    opt.step()
+tl.save_html("flow_timeline.html")   # stacked-area chart, zero dependencies
+```
+
+- [`docs/demo_flow_timeline.html`](docs/demo_flow_timeline.html) — the spiral run, animated
+
+### 14. `load_torch_state_dict` — torch weights, no torch required
+
+Copy a PyTorch checkpoint into a mirroring BackLens model (order + shape
+matching, automatic `(out,in) → (in,out)` transposition for Linear weights).
+Then debug / film / export it — torch is only needed to read the checkpoint.
+
+```python
+backlens.load_torch_state_dict(model, torch_mlp.state_dict())
+```
+
 ## Install & quickstart
 
 ```bash
 pip install -e .            # from a clone; numpy is the only runtime dep
 pip install -e .[onnx]      # optional: load/run ONNX models
-pytest                      # 137 tests, <1s
+pytest                      # 166 tests, <1s
 
 python examples/01_getting_started.py
 python examples/02_spiral_classifier.py     # 99% acc on 3-class spiral + ASCII boundary
