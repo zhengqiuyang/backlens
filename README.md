@@ -9,6 +9,13 @@
 
 **English** | [中文](README.zh-CN.md)
 
+Live demos (GitHub Pages): [Backprop Film](https://zhengqiuyang.github.io/gradlens/demo.html) ·
+[Film of a real ONNX CNN](https://zhengqiuyang.github.io/gradlens/demo_onnx.html) ·
+[NaN hunt](https://zhengqiuyang.github.io/gradlens/demo_nan.html) ·
+[gradient audit](https://zhengqiuyang.github.io/gradlens/demo_audit.html) ·
+[gradient flow](https://zhengqiuyang.github.io/gradlens/demo_flow.html)
+
+
 Every autodiff framework lets you *run* `backward()`. When your loss goes `nan`,
 PyTorch shrugs and micrograd has been spinning for ten minutes on 200 samples.
 GradLens is built around a different premise: **the backward pass should be an

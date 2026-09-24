@@ -9,6 +9,13 @@
 
 [English](README.md) | **中文**
 
+在线演示（GitHub Pages）：[反传影片](https://zhengqiuyang.github.io/gradlens/demo.html) ·
+[真实 ONNX CNN 的反传](https://zhengqiuyang.github.io/gradlens/demo_onnx.html) ·
+[NaN 追凶](https://zhengqiuyang.github.io/gradlens/demo_nan.html) ·
+[梯度审计](https://zhengqiuyang.github.io/gradlens/demo_audit.html) ·
+[梯度流](https://zhengqiuyang.github.io/gradlens/demo_flow.html)
+
+
 所有自动微分框架都让你*执行* `backward()`。但当 loss 变成 `nan` 时，
 PyTorch 只会耸耸肩，micrograd 还在 200 个样本上转第十分钟。GradLens 的立意不同：
 **反向传播本身应该是可观测、可调试的对象** —— 可以逐算子记录、像调试器一样单步执行、
