@@ -48,7 +48,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install
-        run: pip install -e .[onnx]
+        run: pip install -e .[onnx] pytest
       - name: Test (incl. onnxruntime parity + real mnist-8 model)
         run: pytest -q
       - name: Run ONNX examples
