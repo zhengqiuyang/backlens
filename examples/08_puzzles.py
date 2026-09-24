@@ -1,4 +1,4 @@
-"""Autodiff puzzles: hunt sabotaged gradients with GradLens's X-ray tools.
+"""Autodiff puzzles: hunt sabotaged gradients with BackLens's X-ray tools.
 
 Five puzzles, one corrupted gradient each. This demo solves puzzle p1 the
 way a detective would -- then leaves p2-p5 for you.
@@ -8,8 +8,8 @@ Run:  python examples/08_puzzles.py
 
 import numpy as np
 
-from gradlens.puzzles import list_puzzles, load_puzzle
-from gradlens.debug import debug_backward, step_backward
+from backlens.puzzles import list_puzzles, load_puzzle
+from backlens.debug import debug_backward, step_backward
 
 
 def solve_like_a_detective(pid="p1"):

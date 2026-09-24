@@ -1,4 +1,4 @@
-"""Tests for gradlens.onnx_loader: programmatic ONNX models per op,
+"""Tests for backlens.onnx_loader: programmatic ONNX models per op,
 onnxruntime parity, error handling, and end-to-end gradient flow.
 
 All tests skip gracefully when the optional ``onnx`` package is absent.
@@ -9,12 +9,12 @@ import os
 import numpy as np
 import pytest
 
-from gradlens import Tensor
-from gradlens.nn import cross_entropy
+from backlens import Tensor
+from backlens.nn import cross_entropy
 
 onnx = pytest.importorskip("onnx")
 
-from gradlens.onnx_loader import (  # noqa: E402
+from backlens.onnx_loader import (  # noqa: E402
     OnnxModel, OnnxOpError, analyze_onnx, load_onnx,
 )
 

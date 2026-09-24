@@ -5,7 +5,7 @@ watch gradients appear in topological order.
 
 Part B -- a training run that goes NaN (squared logits + big lr). PyTorch
 would hand you a dead loss and a stack trace that points at the framework;
-GradLens raises GradientAnomalyError with the exact op where the gradient
+BackLens raises GradientAnomalyError with the exact op where the gradient
 first became NaN, plus the full backward trace.
 
 Run:  python examples/03_backprop_debugger.py
@@ -13,8 +13,8 @@ Run:  python examples/03_backprop_debugger.py
 
 import numpy as np
 
-from gradlens import Tensor, MLP, Tanh, cross_entropy, Adam
-from gradlens.debug import step_backward, debug_backward, GradientAnomalyError
+from backlens import Tensor, MLP, Tanh, cross_entropy, Adam
+from backlens.debug import step_backward, debug_backward, GradientAnomalyError
 
 
 def part_a_step_through_backward():
@@ -64,7 +64,7 @@ def part_b_catch_the_nan():
             print(err)
             print("!" * 68)
             print("\nPyTorch would show you a nan loss and shrug.")
-            print("GradLens shows the op where the gradient first broke,")
+            print("BackLens shows the op where the gradient first broke,")
             print("and everything contaminated downstream.")
             return
         opt.step()

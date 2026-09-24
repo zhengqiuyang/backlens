@@ -1,7 +1,7 @@
 """Computation-graph export: Mermaid + standalone HTML.
 
 micrograd's ``draw_graph`` needs a system-wide Graphviz install -- the single
-most common "it doesn't work on my machine" report. GradLens exports plain
+most common "it doesn't work on my machine" report. BackLens exports plain
 `Mermaid <https://mermaid.js.org>`_ text instead, which GitHub renders natively
 inside ```` ```mermaid ```` fences in READMEs, issues and PRs, and which any
 browser can render from the generated HTML file with zero local dependencies.
@@ -114,7 +114,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>GradLens graph</title>
+<title>BackLens graph</title>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <style>
   body {{ font-family: ui-monospace, Consolas, monospace; margin: 2rem; background: #fafafa; }}
@@ -122,7 +122,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 </style>
 </head>
 <body>
-<h3>GradLens computation graph</h3>
+<h3>BackLens computation graph</h3>
 <div class="mermaid">
 {graph}
 </div>

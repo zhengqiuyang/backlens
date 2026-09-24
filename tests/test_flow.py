@@ -1,4 +1,4 @@
-"""Tests for gradlens.flow: per-edge gradient mass measurement and report."""
+"""Tests for backlens.flow: per-edge gradient mass measurement and report."""
 
 import json
 import os
@@ -6,9 +6,9 @@ import os
 import numpy as np
 import pytest
 
-from gradlens import Tensor, MLP, Tanh
-from gradlens.nn import mse_loss
-from gradlens.flow import gradient_flow
+from backlens import Tensor, MLP, Tanh
+from backlens.nn import mse_loss
+from backlens.flow import gradient_flow
 
 
 def small_net(seed=0):

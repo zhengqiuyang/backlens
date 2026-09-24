@@ -3,13 +3,13 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gradlens"
-version = "0.5.0"
-description = "A numpy autograd engine with X-ray vision into backpropagation: step-through backward debugging, NaN tracing, gradcheck, Mermaid graphs, an animated backward-pass player, training gradient audits, gradient-flow maps, autodiff puzzles, and bidirectional ONNX interop."
+name = "backlens"
+version = "0.6.0"
+description = "A numpy autograd engine with X-ray vision into backpropagation: step-through backward debugging, NaN tracing, gradcheck, Mermaid graphs, an animated backward-pass player, training gradient audits, gradient-flow maps, autodiff puzzles, and verified bidirectional ONNX interop."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
-authors = [{ name = "GradLens contributors" }]
+authors = [{ name = "BackLens contributors" }]
 keywords = [
     "autograd", "automatic-differentiation", "deep-learning", "education",
     "backpropagation", "debugging", "numpy", "micrograd", "onnx",
@@ -36,11 +36,11 @@ dev = ["pytest>=7", "micrograd"]
 onnx = ["onnx>=1.14", "onnxruntime>=1.16"]
 
 [project.urls]
-Homepage = "https://github.com/zhengqiuyang/gradlens"
-"Source" = "https://github.com/zhengqiuyang/gradlens"
+Homepage = "https://github.com/zhengqiuyang/backlens"
+"Source" = "https://github.com/zhengqiuyang/backlens"
 
 [tool.setuptools.packages.find]
-include = ["gradlens*"]
+include = ["backlens*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

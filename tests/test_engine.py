@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from gradlens import Tensor, no_grad, is_grad_enabled, set_op_hook, clear_op_hooks
-from gradlens.check import gradcheck
+from backlens import Tensor, no_grad, is_grad_enabled, set_op_hook, clear_op_hooks
+from backlens.check import gradcheck
 
 
 def make(seed=0, *shapes):

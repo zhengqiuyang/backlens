@@ -6,7 +6,7 @@ mysteriously stall. The forward pass is perfectly fine. Your job: find WHICH
 backward step (index, in loss-first order) first carries the corrupted
 gradient, then:
 
-    from gradlens.puzzles import load_puzzle, list_puzzles
+    from backlens.puzzles import load_puzzle, list_puzzles
     p = load_puzzle("p1")
     print(p.story)
     print(p.diff())          # which parameter gradients disagree (your compass)
@@ -73,11 +73,15 @@ class Puzzle:
         lines = [f"puzzle {self.id}: parameter gradients, sabotaged vs clean"]
         any_bad = False
         for p, q in zip(live_params, ref_params):
-            delta = float(np.linalg.norm((p.grad - q.grad).ravel()))
-            bad = not np.allclose(p.grad, q.grad, rtol=1e-4, atol=1e-7)
+            g_live = p.grad if p.grad is not None else np.zeros_like(p.data)
+            g_ref = q.grad if q.grad is not None else np.zeros_like(q.data)
+            delta = float(np.linalg.norm((g_live - g_ref).ravel()))
+            bad = not np.allclose(g_live, g_ref, rtol=1e-4, atol=1e-7)
             any_bad |= bad
-            lines.append(f"  {p.label or 'param':<22} |diff|={delta:.3e}"
-                         + ("   <-- WRONG" if bad else ""))
+            note = "   <-- WRONG" if bad else ""
+            if p.grad is None and q.grad is not None:
+                note = "   <-- NO GRADIENT AT ALL"
+            lines.append(f"  {p.label or 'param':<22} |diff|={delta:.3e}{note}")
         if not any_bad:
             lines.append("  (no parameter disagrees?!)")
         return "\n".join(lines)
@@ -140,6 +144,34 @@ def _nan_puzzle():
                   build)
 
 
+def _detach_puzzle():
+    def build(clean: bool):
+        np.random.seed(6)
+        rng = np.random.default_rng(6)
+        x = Tensor(rng.standard_normal((8, 2)), label="x")
+        w1 = Tensor(rng.standard_normal((2, 4)) * 0.5, requires_grad=True, label="w1")
+        w2 = Tensor(rng.standard_normal((4, 1)) * 0.5, requires_grad=True, label="w2")
+        w3 = Tensor(rng.standard_normal((2, 1)) * 0.5, requires_grad=True, label="w3")
+        target = Tensor(rng.standard_normal((8, 1)), label="target")
+
+        h = (x @ w1).tanh()
+        left = h @ w2                     # the branch that will be severed
+        right = x @ w3                    # the branch that keeps learning
+        culprit = None
+        if not clean:
+            left = left.detach()          # the classic accidental detach
+        out = left + right
+        culprit = out                     # the add node exists in both traces
+        return mse_loss(out, target), [w1, w2, w3], culprit
+
+    return Puzzle("p6", "The Silent Detach", "hard",
+                  "half the network trains, half is frozen solid. No NaN, no "
+                  "explosion -- somebody cut one branch off the graph "
+                  "entirely (an accidental .detach()). Find the backward "
+                  "step after which the severed branch receives nothing.",
+                  build)
+
+
 _PUZZLE_MAKERS: List[Callable[[], Puzzle]] = [
     lambda: _net_puzzle(
         "p1", "The Halved Gradient", "easy",
@@ -164,11 +196,12 @@ _PUZZLE_MAKERS: List[Callable[[], Puzzle]] = [
         "Something amplifies one gradient by 100x.",
         lambda g: g * 100.0, layer_idx=0, hidden=[12, 12], seed=3),
     _nan_puzzle,
+    _detach_puzzle,
 ]
 
 
 def load_puzzle(pid: str) -> Puzzle:
-    """Build puzzle ``pid`` (``'p1'`` .. ``'p5'``)."""
+    """Build puzzle ``pid`` (``'p1'`` .. ``'p6'``)."""
     table = {f"p{i + 1}": make for i, make in enumerate(_PUZZLE_MAKERS)}
     if pid not in table:
         raise KeyError(f"unknown puzzle {pid!r}; available: {sorted(table)}")

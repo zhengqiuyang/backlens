@@ -7,12 +7,12 @@ import os
 import numpy as np
 import pytest
 
-from gradlens import (
+from backlens import (
     Tensor, MLP, Tanh, ReLU, Sequential, Linear, Conv2d, MaxPool2d, Flatten,
     SGD, Adam, mse_loss,
 )
-from gradlens.debug import GradientMonitor
-from gradlens.puzzles import list_puzzles, load_puzzle
+from backlens.debug import GradientMonitor
+from backlens.puzzles import list_puzzles, load_puzzle
 
 onnx = pytest.importorskip("onnx")
 ort = pytest.importorskip("onnxruntime")
@@ -51,7 +51,7 @@ def run_ort(path, x):
 
 
 def test_export_mlp_parity(tmp_path):
-    from gradlens.onnx_export import export_onnx
+    from backlens.onnx_export import export_onnx
     np.random.seed(0)
     model = MLP(2, [8, 8], 3, act=Tanh())
     x = np.random.default_rng(2).standard_normal((7, 2))
@@ -61,7 +61,7 @@ def test_export_mlp_parity(tmp_path):
 
 
 def test_export_cnn_parity(tmp_path):
-    from gradlens.onnx_export import export_onnx
+    from backlens.onnx_export import export_onnx
     np.random.seed(1)
     model = Sequential(Conv2d(1, 4, 3, pad=1), ReLU(), MaxPool2d(2, 2),
                        Conv2d(4, 8, 3, pad=1), ReLU(),
@@ -75,8 +75,8 @@ def test_export_cnn_parity(tmp_path):
 
 
 def test_export_roundtrip_through_loader(tmp_path):
-    from gradlens.onnx_export import export_onnx
-    from gradlens.onnx_loader import load_onnx
+    from backlens.onnx_export import export_onnx
+    from backlens.onnx_loader import load_onnx
     np.random.seed(2)
     model = MLP(3, [16], 4, act=ReLU())
     x = np.random.default_rng(4).standard_normal((5, 3))
@@ -89,7 +89,7 @@ def test_export_roundtrip_through_loader(tmp_path):
 
 
 def test_export_rejects_nonexportable_op(tmp_path):
-    from gradlens.onnx_export import export_onnx, ExportError
+    from backlens.onnx_export import export_onnx, ExportError
 
     class Odd:
         pass
@@ -157,13 +157,13 @@ def test_monitor_html_flags_anomalies(tmp_path):
 
 # --------------------------------------------------------------- puzzles
 
-def test_list_puzzles_has_five():
+def test_list_puzzles_has_six():
     listing = list_puzzles()
-    for i in range(1, 6):
+    for i in range(1, 7):
         assert f"p{i}" in listing
 
 
-@pytest.mark.parametrize("pid", ["p1", "p2", "p3", "p4"])
+@pytest.mark.parametrize("pid", ["p1", "p2", "p3", "p4", "p6"])
 def test_net_puzzles_selfcheck(pid):
     import warnings
     with warnings.catch_warnings():
@@ -197,3 +197,77 @@ def test_puzzles_are_deterministic():
     a, b = load_puzzle("p3"), load_puzzle("p3")
     assert a._culprit_index == b._culprit_index
     assert a.n_steps == b.n_steps
+
+
+def test_puzzle_silent_detach_severs_gradients():
+    p = load_puzzle("p6")
+    live_loss, live_params, _ = p._build(False)
+    live_loss.backward()
+    grads = {q.label: q.grad for q in live_params}
+    assert grads["w1"] is None and grads["w2"] is None    # severed branch
+    assert grads["w3"] is not None                        # surviving branch
+    text = p.diff()
+    assert text.count("NO GRADIENT AT ALL") == 2
+    assert "w3" in text and "WRONG" not in [l for l in text.splitlines()
+                                            if l.strip().startswith("w3")][0]
+
+
+# --------------------------------------------------------------- verify_onnx
+
+def test_verify_onnx_passes_on_export(tmp_path):
+    from backlens.onnx_export import export_onnx, verify_onnx
+    np.random.seed(10)
+    model = MLP(2, [8], 3, act=Tanh())
+    x = np.random.default_rng(11).standard_normal((5, 2))
+    path = os.path.join(str(tmp_path), "v.onnx")
+    export_onnx(model, x, path)
+    report = verify_onnx(model, x, path, n_inputs=3)
+    assert report
+    assert report.max_diff < 1e-4
+    assert "PASSED" in report.report()
+
+
+def test_verify_onnx_detects_corrupted_file(tmp_path):
+    import onnx
+    from backlens.onnx_export import export_onnx, verify_onnx
+    np.random.seed(12)
+    model = MLP(2, [8], 3, act=Tanh())
+    x = np.random.default_rng(13).standard_normal((5, 2))
+    good = os.path.join(str(tmp_path), "good.onnx")
+    export_onnx(model, x, good)
+
+    proto = onnx.load(good)
+    proto.graph.initializer[0].raw_data = (
+        np.frombuffer(proto.graph.initializer[0].raw_data, dtype=np.float32) + 5.0
+    ).tobytes()
+    bad = os.path.join(str(tmp_path), "bad.onnx")
+    onnx.save(proto, bad)
+
+    report = verify_onnx(model, x, bad, n_inputs=2)
+    assert not report
+    assert report.max_diff > 1e-3
+    assert "FAILED" in report.report()
+
+
+def test_verify_onnx_exports_to_temp_when_no_path():
+    from backlens.onnx_export import verify_onnx
+    np.random.seed(14)
+    model = MLP(3, [4], 2, act=Tanh())
+    x = np.random.default_rng(15).standard_normal((4, 3))
+    report = verify_onnx(model, x)          # no path: export to a temp file
+    assert report
+    assert report.max_diff < 1e-4
+
+
+def test_verify_onnx_loaded_onnx_model_roundtrip(tmp_path):
+    from backlens.onnx_export import export_onnx, verify_onnx
+    from backlens.onnx_loader import load_onnx
+    np.random.seed(16)
+    model = MLP(2, [8], 2, act=Tanh())
+    x = np.random.default_rng(17).standard_normal((5, 2))
+    path = os.path.join(str(tmp_path), "rt.onnx")
+    export_onnx(model, x, path)
+    reloaded = load_onnx(path)
+    # the reloaded ONNX model must agree with onnxruntime on the same file
+    report = verify_onnx(reloaded, x, path, n_inputs=2)
+    assert report

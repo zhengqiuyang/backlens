@@ -13,8 +13,8 @@ import warnings
 
 import numpy as np
 
-from gradlens import Tensor, MLP, Tanh, cross_entropy, Adam
-from gradlens.film import film_backward
+from backlens import Tensor, MLP, Tanh, cross_entropy, Adam
+from backlens.film import film_backward
 
 
 def normal_film(path):

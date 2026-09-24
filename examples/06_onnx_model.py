@@ -1,4 +1,4 @@
-"""Load a real ONNX model into GradLens -- run it, check it, film its backward.
+"""Load a real ONNX model into BackLens -- run it, check it, film its backward.
 
 Uses the pretrained MNIST CNN from the ONNX Model Zoo (assets/mnist-8.onnx,
 a LeNet-style Conv/MaxPool network). If the asset is missing (or the onnx
@@ -13,24 +13,24 @@ import warnings
 
 import numpy as np
 
-from gradlens import Tensor, SGD
-from gradlens.nn import cross_entropy
-from gradlens.debug import debug_backward
-from gradlens.film import film_backward
+from backlens import Tensor, SGD
+from backlens.nn import cross_entropy
+from backlens.debug import debug_backward
+from backlens.film import film_backward
 
 ASSET = os.path.join(os.path.dirname(__file__), "..", "assets", "mnist-8.onnx")
 
 
 def get_model():
     if os.path.exists(ASSET):
-        from gradlens.onnx_loader import load_onnx, analyze_onnx
+        from backlens.onnx_loader import load_onnx, analyze_onnx
         report = analyze_onnx(ASSET)
         print(f"assets/mnist-8.onnx: ops={report['ops']}")
         print(f"loadable={report['loadable']} unsupported={report['unsupported']}")
         return load_onnx(ASSET), (1, 1, 28, 28)
     # fallback: build a tiny ONNX conv net from scratch (needs the onnx pkg)
     import onnx, onnx.helper
-    from gradlens.onnx_loader import OnnxModel
+    from backlens.onnx_loader import OnnxModel
     rng = np.random.default_rng(0)
 
     def init(name, arr):

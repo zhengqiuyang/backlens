@@ -1,13 +1,13 @@
-"""Run ONNX models as GradLens graphs.
+"""Run ONNX models as BackLens graphs.
 
 ``load_onnx(path)`` parses an ONNX file and rebuilds its forward pass out of
 plain engine ops. The result is a callable whose output is an ordinary
-:class:`~gradlens.engine.Tensor` -- which means everything GradLens does comes
+:class:`~backlens.engine.Tensor` -- which means everything BackLens does comes
 free for any ONNX model: ``debug_backward`` on its loss, ``gradcheck``,
 Mermaid graph export, and an animated Backprop Film of a real pretrained
 network's backward pass.
 
-The ``onnx`` package is imported lazily; install with ``pip install gradlens[onnx]``.
+The ``onnx`` package is imported lazily; install with ``pip install backlens[onnx]``.
 
 Scope: inference + gradient flow for a practical MLP/CNN subset
 (MatMul/Gemm, Add/Mul/..., Conv, MaxPool, Reshape/Flatten/Transpose/Concat,
@@ -33,7 +33,7 @@ SUPPORTED_OPS = {
 
 
 class OnnxOpError(Exception):
-    """An ONNX graph uses something outside GradLens's supported subset."""
+    """An ONNX graph uses something outside BackLens's supported subset."""
 
 
 # ---------------------------------------------------------------------------
@@ -249,10 +249,10 @@ def _b_pow(ins, attrs, opset):
 # ---------------------------------------------------------------------------
 
 class OnnxModel:
-    """A loaded ONNX model, callable and fully inside the GradLens engine.
+    """A loaded ONNX model, callable and fully inside the BackLens engine.
 
     Float initializers become trainable ``Tensor`` parameters (labels keep
-    their ONNX names), so the model can be fine-tuned with GradLens optimizers
+    their ONNX names), so the model can be fine-tuned with BackLens optimizers
     and inspected with ``debug_backward`` / ``film_backward``.
     """
 
@@ -270,7 +270,7 @@ class OnnxModel:
         unsupported = sorted({n.op_type for n in graph.node} - SUPPORTED_OPS)
         if unsupported:
             raise OnnxOpError(
-                f"model uses ops outside GradLens's subset: {', '.join(unsupported)}"
+                f"model uses ops outside BackLens's subset: {', '.join(unsupported)}"
             )
 
         # initializers -> named tensors; float ones are trainable parameters

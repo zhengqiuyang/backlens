@@ -1,8 +1,8 @@
-"""Head-to-head benchmark: GradLens (numpy-vectorized) vs micrograd (scalar).
+"""Head-to-head benchmark: BackLens (numpy-vectorized) vs micrograd (scalar).
 
 Both engines train the SAME 2-16-16-1 relu MLP with the same MSE loss, the
 same initialization, and the same full-batch SGD steps, on the same synthetic
-dataset -- micrograd one scalar ``Value`` at a time, GradLens on whole arrays.
+dataset -- micrograd one scalar ``Value`` at a time, BackLens on whole arrays.
 
 (The pip release of micrograd is 0.1.0, whose ``Value`` predates ``exp``/``log``,
 so the benchmark uses MSE -- expressible with both engines' primitives.)
@@ -15,13 +15,13 @@ import time
 
 import numpy as np
 
-from gradlens import Tensor, MLP, ReLU, mse_loss, SGD
+from backlens import Tensor, MLP, ReLU, mse_loss, SGD
 
 try:
     from micrograd.engine import Value
     from micrograd.nn import MLP as MicroMLP
 except ImportError:
-    raise SystemExit("pip install micrograd  (or: pip install gradlens[dev])")
+    raise SystemExit("pip install micrograd  (or: pip install backlens[dev])")
 
 
 def make_data(n=200, seed=0):
@@ -40,7 +40,7 @@ def init_common(sizes, seed=3):
     ]
 
 
-def build_gradlens(sizes, init):
+def build_backlens(sizes, init):
     # micrograd's hidden neurons are relu, last layer linear -- mirror that
     model = MLP(sizes[0], list(sizes[1:-1]), sizes[-1], act=ReLU())
     linears = [l for l in model.net.layers if hasattr(l, "weight")]
@@ -61,8 +61,8 @@ def build_micrograd(sizes, init):
     return model
 
 
-def run_gradlens(x, y, steps, lr, sizes):
-    model = build_gradlens(sizes, init_common(sizes))
+def run_backlens(x, y, steps, lr, sizes):
+    model = build_backlens(sizes, init_common(sizes))
     opt = SGD(model.parameters(), lr=lr)
     xs, ys = Tensor(x), Tensor(y.reshape(-1, 1))
     t0 = time.perf_counter()
@@ -95,8 +95,8 @@ def main():
     sizes = [2, 16, 16, 1]
     steps, lr = 50, 0.05
 
-    gl_time, gl_loss = run_gradlens(x, y, steps, lr, sizes)
-    print(f"gradlens : {steps} steps in {gl_time:7.3f}s   final loss {gl_loss:.4f}")
+    gl_time, gl_loss = run_backlens(x, y, steps, lr, sizes)
+    print(f"backlens : {steps} steps in {gl_time:7.3f}s   final loss {gl_loss:.4f}")
 
     mg_time, mg_loss = run_micrograd(x, y, steps, lr, sizes)
     print(f"micrograd: {steps} steps in {mg_time:7.3f}s   final loss {mg_loss:.4f}")

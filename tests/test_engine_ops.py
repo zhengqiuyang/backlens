@@ -4,8 +4,8 @@ conv2d (im2col/col2im), maxpool2d."""
 import numpy as np
 import pytest
 
-from gradlens import Tensor, cat
-from gradlens.check import gradcheck
+from backlens import Tensor, cat
+from backlens.check import gradcheck
 
 
 def t(rng, shape, **kw):

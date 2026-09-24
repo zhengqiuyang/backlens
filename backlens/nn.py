@@ -1,9 +1,9 @@
-"""Neural-network building blocks on top of the GradLens engine.
+"""Neural-network building blocks on top of the BackLens engine.
 
 A deliberately small PyTorch-flavored API: ``Module``/``Linear``/activations,
 ``Sequential``/``MLP``, common losses, and SGD/Adam optimizers. Everything is
 built from engine ops only, so every layer stays fully traceable by
-:mod:`gradlens.debug` and :mod:`gradlens.viz`.
+:mod:`backlens.debug` and :mod:`backlens.viz`.
 """
 
 from __future__ import annotations

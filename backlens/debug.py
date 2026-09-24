@@ -1,7 +1,7 @@
 """X-ray vision for the backward pass.
 
-This is GradLens's headline feature. PyTorch lets you *run* ``backward()``;
-micrograd doesn't scale past scalars. GradLens records the backward pass as it
+This is BackLens's headline feature. PyTorch lets you *run* ``backward()``;
+micrograd doesn't scale past scalars. BackLens records the backward pass as it
 happens and lets you:
 
 * ``debug_backward(loss)`` -> a :class:`BackwardTrace` of every op, in the
@@ -234,7 +234,7 @@ class GradientMonitor:
     def _safe_series(self, series: List[float]) -> List[float]:
         return [v if np.isfinite(v) else self._NONFINITE for v in series]
 
-    def save_html(self, path: str, title: str = "GradLens training gradient audit") -> None:
+    def save_html(self, path: str, title: str = "BackLens training gradient audit") -> None:
         """Write a self-contained audit report: per-parameter gradient norm
         heatmap + sparklines, loss curve (if recorded), anomaly flags."""
         params = []
@@ -268,7 +268,7 @@ _AUDIT_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>GradLens gradient audit</title>
+<title>BackLens gradient audit</title>
 <style>
   :root { --bg:#0d1117; --panel:#161b22; --border:#30363d; --fg:#c9d1d9;
           --dim:#8b949e; --blue:#58a6ff; --red:#f85149; --orange:#d29922; --green:#3fb950; }
@@ -298,7 +298,7 @@ _AUDIT_TEMPLATE = r"""<!DOCTYPE html>
 </head>
 <body>
 <header>
-  <h1><span class="lens">GradLens</span> training gradient audit</h1>
+  <h1><span class="lens">BackLens</span> training gradient audit</h1>
   <div id="meta"></div>
 </header>
 <main id="main"></main>

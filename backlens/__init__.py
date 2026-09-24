@@ -1,12 +1,12 @@
-"""GradLens -- a numpy autograd engine with X-ray vision into backpropagation.
+"""BackLens -- a numpy autograd engine with X-ray vision into backpropagation.
 
 Quick tour::
 
-    from gradlens import Tensor, MLP, cross_entropy, Adam
-    from gradlens.debug import debug_backward, step_backward, GradientMonitor
-    from gradlens.check import gradcheck
-    from gradlens.viz import save_graph_md
-    from gradlens.film import film_backward
+    from backlens import Tensor, MLP, cross_entropy, Adam
+    from backlens.debug import debug_backward, step_backward, GradientMonitor
+    from backlens.check import gradcheck
+    from backlens.viz import save_graph_md
+    from backlens.film import film_backward
 
     model = MLP(2, [16, 16], 3)
     opt = Adam(model.parameters(), lr=0.01)
@@ -38,10 +38,10 @@ from .check import gradcheck, GradcheckResult
 from .viz import to_mermaid, save_graph_md, to_html, save_graph_html
 from .film import film_backward, BackwardFilm
 from .onnx_loader import load_onnx, analyze_onnx, OnnxModel, OnnxOpError
-from .onnx_export import export_onnx, ExportError
+from .onnx_export import export_onnx, verify_onnx, VerifyReport, ExportError
 from .flow import gradient_flow, GradientFlow
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 __all__ = [
     "Tensor", "cat", "no_grad", "is_grad_enabled", "set_op_hook", "clear_op_hooks",
     "nn", "Module", "Linear", "Conv2d", "MaxPool2d", "Flatten",
@@ -54,6 +54,6 @@ __all__ = [
     "to_mermaid", "save_graph_md", "to_html", "save_graph_html",
     "film_backward", "BackwardFilm",
     "load_onnx", "analyze_onnx", "OnnxModel", "OnnxOpError",
-    "export_onnx", "ExportError",
+    "export_onnx", "verify_onnx", "VerifyReport", "ExportError",
     "gradient_flow", "GradientFlow",
 ]

@@ -1,31 +1,35 @@
-# GradLens 🔬
+# BackLens 🔬
 
 **A numpy autograd engine with X-ray vision into backpropagation.**
 
 [![CI](https://img.shields.io/badge/CI-github--actions-blue)](.github/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/tests-131%20passed-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-137%20passed-brightgreen)](tests/)
 
 **English** | [中文](README.zh-CN.md)
 
-Live demos (GitHub Pages): [Backprop Film](https://zhengqiuyang.github.io/gradlens/demo.html) ·
-[Film of a real ONNX CNN](https://zhengqiuyang.github.io/gradlens/demo_onnx.html) ·
-[NaN hunt](https://zhengqiuyang.github.io/gradlens/demo_nan.html) ·
-[gradient audit](https://zhengqiuyang.github.io/gradlens/demo_audit.html) ·
-[gradient flow](https://zhengqiuyang.github.io/gradlens/demo_flow.html)
+> **formerly GradLens** — renamed early (0 stars, zero users, wrong-package
+> risk) because `gradlens` was already taken on PyPI by an unrelated PyTorch
+> monitoring toolkit. From now on it's `pip install backlens`.
+
+Live demos (GitHub Pages): [Backprop Film](https://zhengqiuyang.github.io/backlens/demo.html) ·
+[Film of a real ONNX CNN](https://zhengqiuyang.github.io/backlens/demo_onnx.html) ·
+[NaN hunt](https://zhengqiuyang.github.io/backlens/demo_nan.html) ·
+[gradient audit](https://zhengqiuyang.github.io/backlens/demo_audit.html) ·
+[gradient flow](https://zhengqiuyang.github.io/backlens/demo_flow.html)
 
 
 Every autodiff framework lets you *run* `backward()`. When your loss goes `nan`,
 PyTorch shrugs and micrograd has been spinning for ten minutes on 200 samples.
-GradLens is built around a different premise: **the backward pass should be an
+BackLens is built around a different premise: **the backward pass should be an
 observable, debuggable object** — recordable op by op, steppable like a
 debugger, checkable against finite differences, drawable without installing
 anything, and replayable as an animation.
 
 ```python
-from gradlens import Tensor, MLP, Tanh, cross_entropy, Adam
-from gradlens.debug import debug_backward
+from backlens import Tensor, MLP, Tanh, cross_entropy, Adam
+from backlens.debug import debug_backward
 
 model = MLP(2, [32, 32], 3, act=Tanh())
 opt = Adam(model.parameters(), lr=0.05)
@@ -39,14 +43,14 @@ trace = debug_backward(loss)   # the whole backward pass, op by op
 print(trace.report())
 ```
 
-## Why GradLens?
+## Why BackLens?
 
 We love [micrograd](https://github.com/karpathy/micrograd) — it is the best way
-to *understand* autodiff, and GradLens is squarely in its lineage (a readable,
+to *understand* autodiff, and BackLens is squarely in its lineage (a readable,
 ~1000-line engine you can read in one sitting). But the educational-framework
 niche has a blind spot:
 
-| pain | in existing tools | GradLens |
+| pain | in existing tools | BackLens |
 |---|---|---|
 | scalar-only graphs are slow | micrograd: one Python object per scalar | **numpy-vectorized** ops with full broadcasting — ~10,000× faster on batch data (see [benchmark](benchmarks/)) |
 | `loss = nan` and you're blind | PyTorch's `detect_anomaly` gives a stack trace pointing at the framework | **`debug_backward()`** records every op's gradient and raises `GradientAnomalyError` naming the first op that produced NaN/Inf, with a readable trace |
@@ -172,7 +176,7 @@ a gradient goes NaN/Inf, the culprit node and everything it contaminates glow
 red.
 
 ```python
-from gradlens.film import film_backward
+from backlens.film import film_backward
 
 film = film_backward(loss, name="my training step")
 film.save_html("film.html")     # open in any browser
@@ -186,18 +190,18 @@ Live examples (open locally from `docs/`, or host them with GitHub Pages):
 
 To publish the demos: push the repo, enable **Settings → Pages → deploy from
 branch**, and `docs/demo.html` is live at
-`https://<user>.github.io/gradlens/demo.html`.
+`https://<user>.github.io/backlens/demo.html`.
 
 ### 7. `load_onnx` — run (and film) real ONNX models
 
 Load an ONNX file into the engine: float initializers become trainable
-parameters, and every downstream GradLens feature works on the model as-is —
+parameters, and every downstream BackLens feature works on the model as-is —
 including Backprop Film of a **real pretrained network**.
 
 ```python
-from gradlens import load_onnx, Tensor, SGD
-from gradlens.nn import cross_entropy
-from gradlens.film import film_backward
+from backlens import load_onnx, Tensor, SGD
+from backlens.nn import cross_entropy
+from backlens.film import film_backward
 
 model = load_onnx("mnist-8.onnx")          # real pretrained LeNet-style CNN
 loss = cross_entropy(model(Tensor(x)), y)  # forward through plain engine ops
@@ -215,20 +219,23 @@ unsupported ops are rejected up front with an explicit list
 (`analyze_onnx(path)`), never with a crash mid-graph.
 
 - [`docs/demo_onnx.html`](docs/demo_onnx.html) — Backprop Film through the real mnist-8 CNN
-- `pip install gradlens[onnx]` for the optional `onnx` extra
+- `pip install backlens[onnx]` for the optional `onnx` extra
 
 ### 8. `export_onnx` — train here, deploy anywhere
 
-The loop closes: models built and trained in GradLens export to standard
+The loop closes: models built and trained in BackLens export to standard
 ONNX (dynamic batch size), run in onnxruntime, open in Netron, and load back
 via `load_onnx`. The spiral demo trains to 99.33% here, exports, scores
 **99.33% in onnxruntime with logits matching to 4e-6**, and round-trips
-back into GradLens to 2e-6.
+back into BackLens to 2e-6.
 
 ```python
-from gradlens.onnx_export import export_onnx
+from backlens.onnx_export import export_onnx, verify_onnx
 
 export_onnx(model, x[:1], "model.onnx")   # drag into https://netron.app
+verify_onnx(model, x[:1], "model.onnx")   # numeric proof it's the same model
+# verify_onnx PASSED   (model.onnx)
+#   inputs checked: 5   max |engine - onnxruntime| = 1.5e-06
 ```
 
 ### 9. `GradientMonitor.save_html` — the training gradient audit
@@ -242,13 +249,13 @@ as another zero-dependency single-file HTML.
 
 ### 10. Autodiff puzzles — learn backprop by debugging broken graphs
 
-Five deterministic puzzles, each with one sabotaged gradient (injected via
+Six deterministic puzzles, each with one sabotaged gradient (injected via
 hooks, forward pass untouched — exactly like real life). `p.diff()` tells you
 *which parameters* end up wrong; your job is to find *which backward step*
 did it, using `debug_backward`, `step_backward`, and `gradcheck`.
 
 ```python
-from gradlens.puzzles import load_puzzle
+from backlens.puzzles import load_puzzle
 p = load_puzzle("p1")          # The Halved Gradient
 print(p.story); print(p.diff())
 p.check(8)                     # accuse a backward-step index
@@ -268,7 +275,7 @@ one-glance answer to "why is that layer not learning?" — no other tool draws
 this.
 
 ```python
-from gradlens.flow import gradient_flow
+from backlens.flow import gradient_flow
 
 flow = gradient_flow(loss)
 print(flow.report())            # parameter shares, ranked
@@ -282,7 +289,7 @@ flow.save_html("flow.html")     # Sankey-style map
 ```bash
 pip install -e .            # from a clone; numpy is the only runtime dep
 pip install -e .[onnx]      # optional: load/run ONNX models
-pytest                      # 131 tests, <1s
+pytest                      # 137 tests, <1s
 
 python examples/01_getting_started.py
 python examples/02_spiral_classifier.py     # 99% acc on 3-class spiral + ASCII boundary
@@ -297,14 +304,14 @@ python examples/08_puzzles.py                # hunt sabotaged gradients
 The engine you'll read in one sitting:
 
 ```
-gradlens/
+backlens/
 ├── engine.py       # Tensor + autodiff core (broadcasting, conv2d, maxpool2d, hooks)
 ├── nn.py           # Linear/MLP/activations, MSE/BCE/cross-entropy, SGD/Adam
 ├── debug.py        # debug_backward, step_backward, GradientMonitor, anomalies
 ├── check.py        # finite-difference gradcheck
 ├── viz.py          # Mermaid/HTML graph export
 ├── film.py         # Backprop Film: record + replay backward as animation
-└── onnx_loader.py  # run ONNX models as GradLens graphs (optional extra)
+└── onnx_loader.py  # run ONNX models as BackLens graphs (optional extra)
 ```
 
 ## Benchmark vs micrograd (honest numbers)
@@ -313,7 +320,7 @@ Same 2-16-16-1 ReLU MLP, same init, same MSE loss, same full-batch SGD, 200
 samples, 50 steps (`benchmarks/bench_vs_micrograd.py`, Windows, Python 3.12):
 
 ```
-gradlens : 50 steps in   0.009s   final loss 0.0737
+backlens : 50 steps in   0.009s   final loss 0.0737
 micrograd: 50 steps in 106.599s   final loss 0.0737
 
 speedup  :  11711.0x   (same net, same init, same optimizer)
@@ -323,12 +330,12 @@ note: identical final losses -- both engines compute identical math
 The identical final loss is the point: vectorization changes the *speed*,
 not the *math* — and the identical numbers cross-validate the engine. This
 benchmark is a small net on CPU; the ratio grows with batch size. micrograd
-remains the purer minimal engine (GradLens trades ~100 lines for numpy ops,
+remains the purer minimal engine (BackLens trades ~100 lines for numpy ops,
 hooks and tracing); use each for what it's good at.
 
-## Where GradLens sits
+## Where BackLens sits
 
-| | [micrograd](https://github.com/karpathy/micrograd) | [autograd](https://github.com/HIPS/autograd) | [tinygrad](https://github.com/tinygrad/tinygrad) | PyTorch | **GradLens** |
+| | [micrograd](https://github.com/karpathy/micrograd) | [autograd](https://github.com/HIPS/autograd) | [tinygrad](https://github.com/tinygrad/tinygrad) | PyTorch | **BackLens** |
 |---|---|---|---|---|---|
 | array-valued tensors | ✗ (scalar) | ✓ | ✓ | ✓ | ✓ |
 | lines of core code (readable in one sitting) | ~150 | ~3k | ~10k+ | huge | **~1.9k** |
@@ -342,11 +349,11 @@ hooks and tracing); use each for what it's good at.
 
 ## Roadmap
 
-- [x] ~~`trace.save("film.json")` — replayable backward passes~~ → **Backprop Film** (`gradlens.film`)
-- [x] ~~ONNX interop~~ → **`gradlens.onnx_loader`** (run + fine-tune + film ONNX models)
-- [ ] a Jupyter magic: `%%gradlens` renders the graph inline
-- [x] ~~GradLens → ONNX export (train here, deploy anywhere)~~ → **`gradlens.onnx_export`**
-- [x] ~~autodiff puzzle set (teach backprop by debugging broken graphs)~~ → **`gradlens.puzzles`** (5 puzzles)
+- [x] ~~`trace.save("film.json")` — replayable backward passes~~ → **Backprop Film** (`backlens.film`)
+- [x] ~~ONNX interop~~ → **`backlens.onnx_loader`** (run + fine-tune + film ONNX models)
+- [ ] a Jupyter magic: `%%backlens` renders the graph inline
+- [x] ~~BackLens → ONNX export (train here, deploy anywhere)~~ → **`backlens.onnx_export`**
+- [x] ~~autodiff puzzle set (teach backprop by debugging broken graphs)~~ → **`backlens.puzzles`** (6 puzzles)
 
 ## Contributing
 

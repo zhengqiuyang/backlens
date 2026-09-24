@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from gradlens import Tensor, MLP, cross_entropy, Adam
-from gradlens.debug import (
+from backlens import Tensor, MLP, cross_entropy, Adam
+from backlens.debug import (
     debug_backward, step_backward, BackwardTrace, GradientAnomalyError, GradientMonitor,
 )
 

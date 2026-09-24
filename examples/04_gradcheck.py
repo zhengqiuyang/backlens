@@ -9,8 +9,8 @@ Run:  python examples/04_gradcheck.py
 
 import numpy as np
 
-from gradlens import Tensor, MLP, Tanh, cross_entropy
-from gradlens.check import gradcheck
+from backlens import Tensor, MLP, Tanh, cross_entropy
+from backlens.check import gradcheck
 
 
 def main():

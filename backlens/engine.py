@@ -1,4 +1,4 @@
-"""GradLens autograd engine.
+"""BackLens autograd engine.
 
 A numpy-backed, vectorized reverse-mode automatic differentiation engine in the
 spirit of micrograd -- but operating on arrays instead of scalars, with
@@ -11,7 +11,7 @@ Design notes
   an op name (``_op``), and a closure (``_backward``) that propagates gradients.
 * ``backward()`` runs the classic topological-sort loop, but can optionally
   return the *trace*: the list of nodes in the exact order their ``_backward``
-  closures executed. That trace is what :mod:`gradlens.debug` turns into a
+  closures executed. That trace is what :mod:`backlens.debug` turns into a
   step-by-step view of backpropagation.
 * Hooks: ``tensor.register_hook(fn)`` fires when the gradient w.r.t. that
   tensor is finalized; ``set_op_hook(op, fn)`` fires for every node of a given
@@ -544,7 +544,7 @@ class Tensor:
         Args:
             return_trace: if True, also return the nodes in the exact order
                 their ``_backward`` closures executed (i.e. reverse topo order).
-                This is the raw material for :mod:`gradlens.debug`.
+                This is the raw material for :mod:`backlens.debug`.
         """
         if self.size != 1:
             raise RuntimeError(

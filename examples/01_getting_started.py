@@ -5,9 +5,9 @@ Run:  python examples/01_getting_started.py
 
 import numpy as np
 
-from gradlens import Tensor, no_grad
-from gradlens.debug import debug_backward
-from gradlens.viz import save_graph_md, save_graph_html
+from backlens import Tensor, no_grad
+from backlens.debug import debug_backward
+from backlens.viz import save_graph_md, save_graph_html
 
 
 def main():

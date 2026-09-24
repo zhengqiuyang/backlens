@@ -3,9 +3,9 @@ import os
 import numpy as np
 import pytest
 
-from gradlens import Tensor
-from gradlens.check import gradcheck
-from gradlens.viz import to_mermaid, save_graph_md, to_html, save_graph_html
+from backlens import Tensor
+from backlens.check import gradcheck
+from backlens.viz import to_mermaid, save_graph_md, to_html, save_graph_html
 
 
 def build(seed=0):

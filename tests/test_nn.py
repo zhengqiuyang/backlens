@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from gradlens import (
+from backlens import (
     Tensor, MLP, Linear, Sequential, ReLU, Tanh,
     mse_loss, binary_cross_entropy, cross_entropy,
     SGD, Adam, no_grad,

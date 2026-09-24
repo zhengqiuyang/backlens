@@ -4,9 +4,9 @@ import os
 import numpy as np
 import pytest
 
-from gradlens import Tensor, MLP, Tanh, cross_entropy
-from gradlens.debug import debug_backward
-from gradlens.film import film_backward, BackwardFilm
+from backlens import Tensor, MLP, Tanh, cross_entropy
+from backlens.debug import debug_backward
+from backlens.film import film_backward, BackwardFilm
 
 
 def build(seed=0):

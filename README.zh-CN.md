@@ -1,29 +1,33 @@
-# GradLens 🔬
+# BackLens 🔬
 
 **一个能"透视"反向传播的 numpy 自动微分引擎。**
 
 [![CI](https://img.shields.io/badge/CI-github--actions-blue)](.github/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/tests-131%20passed-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-137%20passed-brightgreen)](tests/)
 
 [English](README.md) | **中文**
 
-在线演示（GitHub Pages）：[反传影片](https://zhengqiuyang.github.io/gradlens/demo.html) ·
-[真实 ONNX CNN 的反传](https://zhengqiuyang.github.io/gradlens/demo_onnx.html) ·
-[NaN 追凶](https://zhengqiuyang.github.io/gradlens/demo_nan.html) ·
-[梯度审计](https://zhengqiuyang.github.io/gradlens/demo_audit.html) ·
-[梯度流](https://zhengqiuyang.github.io/gradlens/demo_flow.html)
+> **曾用名 GradLens** —— 趁零用户早期改名，因为 `gradlens` 在 PyPI 上已被一个
+> 无关的 PyTorch 监控工具占用，继续用会有装错包的风险。今后是
+> `pip install backlens`。
+
+在线演示（GitHub Pages）：[反传影片](https://zhengqiuyang.github.io/backlens/demo.html) ·
+[真实 ONNX CNN 的反传](https://zhengqiuyang.github.io/backlens/demo_onnx.html) ·
+[NaN 追凶](https://zhengqiuyang.github.io/backlens/demo_nan.html) ·
+[梯度审计](https://zhengqiuyang.github.io/backlens/demo_audit.html) ·
+[梯度流](https://zhengqiuyang.github.io/backlens/demo_flow.html)
 
 
 所有自动微分框架都让你*执行* `backward()`。但当 loss 变成 `nan` 时，
-PyTorch 只会耸耸肩，micrograd 还在 200 个样本上转第十分钟。GradLens 的立意不同：
+PyTorch 只会耸耸肩，micrograd 还在 200 个样本上转第十分钟。BackLens 的立意不同：
 **反向传播本身应该是可观测、可调试的对象** —— 可以逐算子记录、像调试器一样单步执行、
 用有限差分校验、零依赖地画出来，还能像动画一样回放。
 
 ```python
-from gradlens import Tensor, MLP, Tanh, cross_entropy, Adam
-from gradlens.debug import debug_backward
+from backlens import Tensor, MLP, Tanh, cross_entropy, Adam
+from backlens.debug import debug_backward
 
 model = MLP(2, [32, 32], 3, act=Tanh())
 opt = Adam(model.parameters(), lr=0.05)
@@ -37,12 +41,12 @@ trace = debug_backward(loss)   # 整个反向传播过程，逐算子记录
 print(trace.report())
 ```
 
-## 为什么做 GradLens？
+## 为什么做 BackLens？
 
 我们热爱 [micrograd](https://github.com/karpathy/micrograd) —— 它是*理解*自动微分的最佳途径，
-GradLens 正是它的血脉延续（一个 ~1000 行、一次就能读完的引擎）。但教学级框架这个生态位有个盲区：
+BackLens 正是它的血脉延续（一个 ~1000 行、一次就能读完的引擎）。但教学级框架这个生态位有个盲区：
 
-| 痛点 | 现有工具 | GradLens |
+| 痛点 | 现有工具 | BackLens |
 |---|---|---|
 | 纯标量图太慢 | micrograd：每个标量一个 Python 对象 | **numpy 向量化**算子 + 完整广播支持 —— 批量数据快约 4 个数量级（见[基准](benchmarks/)） |
 | `loss = nan` 两眼一抹黑 | PyTorch 的 `detect_anomaly` 给的是指向框架的堆栈 | **`debug_backward()`** 记录每个算子的梯度，抛出 `GradientAnomalyError` 并指明第一个产生 NaN/Inf 的算子，附完整可读报告 |
@@ -161,7 +165,7 @@ graph LR
 肇事节点和它污染的所有节点会亮起红色。
 
 ```python
-from gradlens.film import film_backward
+from backlens.film import film_backward
 
 film = film_backward(loss, name="my training step")
 film.save_html("film.html")     # 用任意浏览器打开
@@ -173,17 +177,17 @@ film.save_html("film.html")     # 用任意浏览器打开
 - [`docs/demo_nan.html`](docs/demo_nan.html) —— 一次训练爆炸现场，影片会指出第一个出错的算子
 
 发布 demo 的方法：推送仓库后，在 **Settings → Pages → deploy from branch** 打开，
-`docs/demo.html` 就在 `https://<user>.github.io/gradlens/demo.html` 上线了。
+`docs/demo.html` 就在 `https://<user>.github.io/backlens/demo.html` 上线了。
 
 ### 7. `load_onnx` —— 加载（并"放映"）真实的 ONNX 模型
 
-把 ONNX 文件加载进引擎：浮点初始化权重自动变成可训练参数，GradLens 的
+把 ONNX 文件加载进引擎：浮点初始化权重自动变成可训练参数，BackLens 的
 全部能力对模型即刻生效——包括给**真实预训练网络**的反传放影片。
 
 ```python
-from gradlens import load_onnx, Tensor, SGD
-from gradlens.nn import cross_entropy
-from gradlens.film import film_backward
+from backlens import load_onnx, Tensor, SGD
+from backlens.nn import cross_entropy
+from backlens.film import film_backward
 
 model = load_onnx("mnist-8.onnx")          # 真实预训练的 LeNet 式 CNN
 loss = cross_entropy(model(Tensor(x)), y)  # 前向 = 纯引擎算子
@@ -199,19 +203,22 @@ Squeeze/Unsqueeze、ReduceSum/ReduceMean、GlobalAveragePool 等——不支持�
 会在加载时就明确报出来（`analyze_onnx(path)`），绝不让程序在图中间崩溃。
 
 - [`docs/demo_onnx.html`](docs/demo_onnx.html) —— 真实 mnist-8 CNN 的反传影片
-- `pip install gradlens[onnx]` 安装可选的 onnx 依赖
+- `pip install backlens[onnx]` 安装可选的 onnx 依赖
 
 ### 8. `export_onnx` —— 此处训练，随处部署
 
-闭环完成：在 GradLens 里搭建并训练的模型可以导出为标准 ONNX（动态 batch），
-在 onnxruntime 里运行、在 Netron 里打开、再用 `load_onnx` 装回 GradLens。
+闭环完成：在 BackLens 里搭建并训练的模型可以导出为标准 ONNX（动态 batch），
+在 onnxruntime 里运行、在 Netron 里打开、再用 `load_onnx` 装回 BackLens。
 螺旋分类示例在此训练到 99.33%，导出后 **onnxruntime 同样 99.33%、logits 相差
-4e-6**，装回 GradLens 相差 2e-6。
+4e-6**，装回 BackLens 相差 2e-6。
 
 ```python
-from gradlens.onnx_export import export_onnx
+from backlens.onnx_export import export_onnx, verify_onnx
 
 export_onnx(model, x[:1], "model.onnx")   # 拖进 https://netron.app 看结构
+verify_onnx(model, x[:1], "model.onnx")   # 数值证明两者是同一个模型
+# verify_onnx PASSED   (model.onnx)
+#   inputs checked: 5   max |engine - onnxruntime| = 1.5e-06
 ```
 
 ### 9. `GradientMonitor.save_html` —— 训练梯度审计报告
@@ -224,12 +231,12 @@ sparkline、loss 曲线、自动判定 healthy / exploding? / vanishing? / NaN/I
 
 ### 10. 自动微分谜题集 —— 通过"破案"学反传
 
-五个确定性谜题，每个都藏着一处被污染的梯度（用 hooks 注入，前向完全正常——
+六个确定性谜题，每个都藏着一处被污染的梯度（用 hooks 注入，前向完全正常——
 和真实生活一样）。`p.diff()` 告诉你*哪些参数*的梯度错了；你的任务是用
 `debug_backward`、`step_backward`、`gradcheck` 找出*哪一步反传*动的手。
 
 ```python
-from gradlens.puzzles import load_puzzle
+from backlens.puzzles import load_puzzle
 p = load_puzzle("p1")          # The Halved Gradient（减半泄漏）
 print(p.story); print(p.diff())
 p.check(8)                     # 指认一个反传步的编号
@@ -246,7 +253,7 @@ p.check(8)                     # 指认一个反传步的编号
 一眼答案 —— 没有其他工具画这张图。
 
 ```python
-from gradlens.flow import gradient_flow
+from backlens.flow import gradient_flow
 
 flow = gradient_flow(loss)
 print(flow.report())            # 参数份额排名
@@ -260,7 +267,7 @@ flow.save_html("flow.html")     # Sankey 风格流向图
 ```bash
 pip install -e .            # 克隆后本地安装；运行时唯一依赖是 numpy
 pip install -e .[onnx]      # 可选：加载/运行 ONNX 模型
-pytest                      # 131 个测试，<1 秒
+pytest                      # 137 个测试，<1 秒
 
 python examples/01_getting_started.py
 python examples/02_spiral_classifier.py     # 三分类螺旋 99% 准确率 + ASCII 决策边界
@@ -275,15 +282,15 @@ python examples/08_puzzles.py                # 追查被污染的梯度
 一次就能读完的引擎：
 
 ```
-gradlens/
+backlens/
 ├── engine.py       # Tensor + 自动微分核心（广播、conv2d、maxpool2d、hooks）
 ├── nn.py           # Linear/MLP/激活函数，MSE/BCE/交叉熵，SGD/Adam
 ├── debug.py        # debug_backward、step_backward、GradientMonitor、异常定位
 ├── check.py        # 有限差分 gradcheck
 ├── viz.py          # Mermaid/HTML 计算图导出
 ├── film.py         # 反传影片：录制 + 动画回放
-├── onnx_loader.py  # ONNX 模型 → GradLens 计算图（可选依赖）
-├── onnx_export.py   # GradLens 模型 → ONNX（此处训练，随处部署）
+├── onnx_loader.py  # ONNX 模型 → BackLens 计算图（可选依赖）
+├── onnx_export.py   # BackLens 模型 → ONNX（此处训练，随处部署）
 ├── puzzles.py       # 自动微分谜题：破案学反传
 └── flow.py          # 梯度流：谁吃掉了梯度（Sankey HTML）
 ```
@@ -294,7 +301,7 @@ gradlens/
 （`benchmarks/bench_vs_micrograd.py`，Windows，Python 3.12）：
 
 ```
-gradlens : 50 steps in   0.009s   final loss 0.0737
+backlens : 50 steps in   0.009s   final loss 0.0737
 micrograd: 50 steps in 106.599s   final loss 0.0737
 
 speedup  :  11711.0x   (same net, same init, same optimizer)
@@ -303,11 +310,11 @@ note: identical final losses -- both engines compute identical math
 
 最终 loss 完全一致才是重点：向量化改变的是*速度*而非*数学* —— 一致的数字也是引擎的交叉验证。
 该基准是小网络 CPU 场景，批越大差距越大。micrograd 仍是更纯粹的最小引擎
-（GradLens 用约 100 行换来了 numpy 算子、hooks 与追踪能力），各取所长。
+（BackLens 用约 100 行换来了 numpy 算子、hooks 与追踪能力），各取所长。
 
-## GradLens 的定位
+## BackLens 的定位
 
-| | [micrograd](https://github.com/karpathy/micrograd) | [autograd](https://github.com/HIPS/autograd) | [tinygrad](https://github.com/tinygrad/tinygrad) | PyTorch | **GradLens** |
+| | [micrograd](https://github.com/karpathy/micrograd) | [autograd](https://github.com/HIPS/autograd) | [tinygrad](https://github.com/tinygrad/tinygrad) | PyTorch | **BackLens** |
 |---|---|---|---|---|---|
 | 数组张量 | ✗（标量） | ✓ | ✓ | ✓ | ✓ |
 | 核心代码行数（一次读完） | ~150 | ~3k | ~10k+ | 巨大 | **~1.9k** |
@@ -321,11 +328,11 @@ note: identical final losses -- both engines compute identical math
 
 ## 路线图
 
-- [x] ~~`trace.save("film.json")` —— 可回放的反向传播~~ → 已实现 **反传影片**（`gradlens.film`）
-- [x] ~~ONNX 互操作~~ → 已实现 **`gradlens.onnx_loader`**（运行 + 微调 + 放映 ONNX 模型）
-- [ ] Jupyter magic：`%%gradlens` 内联渲染计算图
-- [x] ~~GradLens → ONNX 导出（此处训练，随处部署）~~ → 已实现 **`gradlens.onnx_export`**
-- [x] ~~自动微分谜题集（通过调试坏掉的图来学反传）~~ → 已实现 **`gradlens.puzzles`**（5 关）
+- [x] ~~`trace.save("film.json")` —— 可回放的反向传播~~ → 已实现 **反传影片**（`backlens.film`）
+- [x] ~~ONNX 互操作~~ → 已实现 **`backlens.onnx_loader`**（运行 + 微调 + 放映 ONNX 模型）
+- [ ] Jupyter magic：`%%backlens` 内联渲染计算图
+- [x] ~~BackLens → ONNX 导出（此处训练，随处部署）~~ → 已实现 **`backlens.onnx_export`**
+- [x] ~~自动微分谜题集（通过调试坏掉的图来学反传）~~ → 已实现 **`backlens.puzzles`**（6 关）
 
 ## 参与贡献
 

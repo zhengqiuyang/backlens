@@ -1,10 +1,10 @@
-"""Export GradLens models to ONNX -- train here, deploy anywhere.
+"""Export BackLens models to ONNX -- train here, deploy anywhere.
 
 ``export_onnx(model, dummy_input, "model.onnx")`` runs the model's forward
 pass once, walks the recorded engine graph, and re-emits it as a standard
 ONNX file: parameters become initializers (float32), engine ops become ONNX
 ops. The result runs in onnxruntime, Netron, and any ONNX-compatible runtime
--- and loads back into GradLens via :func:`gradlens.onnx_loader.load_onnx`,
+-- and loads back into BackLens via :func:`backlens.onnx_loader.load_onnx`,
 closing the loop.
 
 The mapping is 1:1 (MatMul+Add, no Gemm fusion); ops without an ONNX
@@ -36,7 +36,7 @@ _SIMPLE = {
 
 
 def export_onnx(module: Module, dummy_input, path: str,
-                name: str = "gradlens_model", opset: int = 11,
+                name: str = "backlens_model", opset: int = 11,
                 dynamic_batch: bool = True):
     """Export ``module`` to ``path`` after tracing one forward pass.
 
@@ -159,3 +159,83 @@ def export_onnx(module: Module, dummy_input, path: str,
     onnx.checker.check_model(model)
     onnx.save(model, path)
     return model
+
+
+# ---------------------------------------------------------------------------
+# verification: does the exported file really compute the same thing?
+# ---------------------------------------------------------------------------
+
+class VerifyReport:
+    """Result of comparing a GradLens model against an ONNX file numerically."""
+
+    def __init__(self, path: str, passed: bool, max_diff: float,
+                 diffs: List[float]):
+        self.path = path
+        self.passed = passed
+        self.max_diff = max_diff
+        self.diffs = diffs
+
+    def report(self) -> str:
+        verdict = "PASSED" if self.passed else "FAILED"
+        return "\n".join([
+            f"verify_onnx {verdict}   ({self.path})",
+            f"  inputs checked: {len(self.diffs)}   "
+            f"max |engine - onnxruntime| = {self.max_diff:.3e}",
+        ])
+
+    def __bool__(self):
+        return self.passed
+
+    def __repr__(self):
+        return (f"VerifyReport(passed={self.passed}, max_diff={self.max_diff:.3e}, "
+                f"n_inputs={len(self.diffs)})")
+
+
+def verify_onnx(module, dummy_input, path=None, n_inputs: int = 4,
+                atol: float = 1e-4, seed: int = 0) -> VerifyReport:
+    """The one-command trust check for an export (or any ONNX file).
+
+    Runs ``n_inputs`` random inputs shaped like ``dummy_input`` through both
+    the engine and onnxruntime on ``path``, and compares outputs. If ``path``
+    is None -- or names a file that does not exist yet -- the model is
+    exported first (a temp file when path is None).
+
+    Works for plain GradLens modules AND for models loaded with
+    ``load_onnx`` (verifying this engine against onnxruntime).
+
+    Requires the optional extra:  pip install backlens[onnx]
+    """
+    import os
+    import tempfile
+
+    try:
+        import onnxruntime as ort
+    except ImportError as e:                                   # pragma: no cover
+        raise ImportError("verify_onnx needs onnxruntime: "
+                          "pip install backlens[onnx]") from e
+
+    tmp_path = None
+    if path is None:
+        fd, tmp_path = tempfile.mkstemp(suffix=".onnx")
+        os.close(fd)
+        os.remove(tmp_path)        # export_onnx will create the file fresh
+        path = tmp_path
+    if not os.path.exists(str(path)):
+        export_onnx(module, dummy_input, str(path))
+
+    sess = ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
+    in_name = sess.get_inputs()[0].name
+    rng = np.random.default_rng(seed)
+    shape = np.shape(dummy_input)
+    diffs = []
+    for _ in range(n_inputs):
+        x = rng.standard_normal(shape)
+        ours = module(Tensor(x)).data
+        ref = sess.run(None, {in_name: x.astype(np.float32)})[0]
+        if np.shape(ref) != ours.shape:
+            raise ExportError(f"output shape mismatch: engine {ours.shape} "
+                              f"vs onnxruntime {np.shape(ref)}")
+        diffs.append(float(np.abs(ours - np.asarray(ref, dtype=np.float64)).max()))
+    if tmp_path is not None:
+        os.remove(tmp_path)
+    return VerifyReport(str(path), max(diffs) < atol, max(diffs), diffs)

@@ -9,8 +9,8 @@ Run:  python examples/02_spiral_classifier.py
 
 import numpy as np
 
-from gradlens import Tensor, MLP, Tanh, cross_entropy, Adam
-from gradlens.debug import GradientMonitor
+from backlens import Tensor, MLP, Tanh, cross_entropy, Adam
+from backlens.debug import GradientMonitor
 
 
 def spiral(n=120, classes=3, seed=1):
